@@ -1,0 +1,37 @@
+{
+  "name": "pns-solana",
+  "version": "0.1.0",
+  "description": "PNS (Predictify Name Service) Solana Anchor program and TypeScript client",
+  "main": "client/pns-client.ts",
+  "scripts": {
+    "build": "anchor build",
+    "test": "anchor test",
+    "deploy": "anchor deploy",
+    "idl:generate": "anchor idl generate -p programs/pns_anchor",
+    "idl:fetch": "anchor idl fetch YOUR_PROGRAM_ID_HERE --provider.cluster devnet",
+    "lint": "cargo clippy",
+    "fmt": "cargo fmt"
+  },
+  "keywords": [
+    "solana",
+    "anchor",
+    "pns",
+    "name-service",
+    "domain",
+    "blockchain"
+  ],
+  "author": "Predictify",
+  "license": "MIT",
+  "devDependencies": {
+    "@coral-xyz/anchor": "^0.29.0",
+    "@solana/web3.js": "^1.87.6",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.10.6",
+    "mocha": "^10.2.0",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "bn.js": "^1.6.6"
+  }
+}

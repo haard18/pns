@@ -1,0 +1,39 @@
+# Anchor
+.anchor
+target/
+
+# Rust
+/target
+Cargo.lock
+**/*.rs.bk
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Solana local
+test-ledger/

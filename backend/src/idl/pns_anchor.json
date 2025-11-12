@@ -1,0 +1,81 @@
+{
+  "version": "0.1.0",
+  "name": "pns_anchor",
+  "instructions": [
+    {
+      "name": "initialize",
+      "accounts": [
+        { "name": "registry", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": []
+    },
+    {
+      "name": "registerDomain",
+      "accounts": [
+        { "name": "registry", "isMut": true, "isSigner": false },
+        { "name": "domainAccount", "isMut": true, "isSigner": false },
+        { "name": "owner", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "name", "type": "string" },
+        { "name": "duration", "type": "i64" },
+        { "name": "resolver", "type": { "option": "publicKey" } }
+      ]
+    },
+    {
+      "name": "renewDomain",
+      "accounts": [
+        { "name": "domainAccount", "isMut": true, "isSigner": false },
+        { "name": "owner", "isMut": true, "isSigner": true }
+      ],
+      "args": [
+        { "name": "duration", "type": "i64" }
+      ]
+    },
+    {
+      "name": "transferDomain",
+      "accounts": [
+        { "name": "domainAccount", "isMut": true, "isSigner": false },
+        { "name": "currentOwner", "isMut": false, "isSigner": true },
+        { "name": "newOwner", "isMut": false, "isSigner": false }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Registry",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "authority", "type": "publicKey" },
+          { "name": "domainCount", "type": "u64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "DomainAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "nameHash", "type": { "array": ["u8", 32] } },
+          { "name": "owner", "type": "publicKey" },
+          { "name": "resolver", "type": { "option": "publicKey" } },
+          { "name": "expiration", "type": "i64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "Unauthorized", "msg": "Unauthorized access" },
+    { "code": 6001, "name": "DomainExpired", "msg": "Domain has expired" },
+    { "code": 6002, "name": "DomainNotAvailable", "msg": "Domain is not available" },
+    { "code": 6003, "name": "InvalidDuration", "msg": "Invalid duration" },
+    { "code": 6004, "name": "InvalidName", "msg": "Invalid domain name" }
+  ]
+}
