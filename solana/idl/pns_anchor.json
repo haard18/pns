@@ -1,0 +1,448 @@
+{
+  "address": "EB6pbr3ZRnZv1bhgffQuuER5armxMRNauNWRabzuiaNj",
+  "metadata": {
+    "name": "pns_anchor",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "initialize",
+      "docs": [
+        "Initialize the global registry PDA",
+        "This should be called once at deployment"
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "register_domain",
+      "docs": [
+        "Register a new domain",
+        "Creates a DomainAccount PDA derived from nameHash"
+      ],
+      "discriminator": [
+        236,
+        7,
+        208,
+        151,
+        173,
+        149,
+        73,
+        104
+      ],
+      "accounts": [
+        {
+          "name": "domain_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  111,
+                  109,
+                  97,
+                  105,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "name_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "duration",
+          "type": "u64"
+        },
+        {
+          "name": "resolver",
+          "type": {
+            "option": "pubkey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "renew_domain",
+      "docs": [
+        "Renew an existing domain",
+        "Extends the expiration time"
+      ],
+      "discriminator": [
+        198,
+        206,
+        229,
+        140,
+        157,
+        111,
+        79,
+        68
+      ],
+      "accounts": [
+        {
+          "name": "domain_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  111,
+                  109,
+                  97,
+                  105,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "name_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_name_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "duration",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "set_resolver",
+      "docs": [
+        "Update resolver for a domain"
+      ],
+      "discriminator": [
+        137,
+        108,
+        27,
+        51,
+        202,
+        16,
+        33,
+        119
+      ],
+      "accounts": [
+        {
+          "name": "domain_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  111,
+                  109,
+                  97,
+                  105,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "name_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_name_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "resolver",
+          "type": {
+            "option": "pubkey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "transfer_domain",
+      "docs": [
+        "Transfer domain ownership"
+      ],
+      "discriminator": [
+        129,
+        115,
+        193,
+        43,
+        174,
+        5,
+        241,
+        52
+      ],
+      "accounts": [
+        {
+          "name": "domain_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  111,
+                  109,
+                  97,
+                  105,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "name_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_name_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "new_owner",
+          "type": "pubkey"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "DomainAccount",
+      "discriminator": [
+        35,
+        146,
+        98,
+        112,
+        13,
+        230,
+        231,
+        153
+      ]
+    },
+    {
+      "name": "Registry",
+      "discriminator": [
+        47,
+        174,
+        110,
+        246,
+        184,
+        182,
+        252,
+        218
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Unauthorized - caller is not domain owner"
+    },
+    {
+      "code": 6001,
+      "name": "DomainExpired",
+      "msg": "Domain is expired"
+    },
+    {
+      "code": 6002,
+      "name": "DomainNotAvailable",
+      "msg": "Domain is not available"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidDuration",
+      "msg": "Invalid duration - must be between 1 second and 10 years"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidName",
+      "msg": "Invalid domain name"
+    }
+  ],
+  "types": [
+    {
+      "name": "DomainAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "name_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "resolver",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "expiration",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Registry",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "domain_count",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

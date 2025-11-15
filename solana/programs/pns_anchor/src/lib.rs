@@ -2,7 +2,7 @@
 
 use anchor_lang::prelude::*;
 
-declare_id!("5kD5m3gyXcYeGKn9LK4heqzZJCKXtZSHnKgWnQ9sEN36");
+declare_id!("EB6pbr3ZRnZv1bhgffQuuER5armxMRNauNWRabzuiaNj");
 
 #[program]
 pub mod pns_anchor {
