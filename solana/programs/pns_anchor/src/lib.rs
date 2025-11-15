@@ -1,7 +1,8 @@
-use anchor_lang::prelude::*;
-use std::mem::size_of;
+#![allow(unexpected_cfgs)]
 
-declare_id!("YOUR_PROGRAM_ID_HERE");
+use anchor_lang::prelude::*;
+
+declare_id!("5kD5m3gyXcYeGKn9LK4heqzZJCKXtZSHnKgWnQ9sEN36");
 
 #[program]
 pub mod pns_anchor {
@@ -57,8 +58,7 @@ pub mod pns_anchor {
         registry.domain_count = registry.domain_count.saturating_add(1);
 
         msg!(
-            "Domain registered: {} | Owner: {} | Expires: {}",
-            hex::encode(&name_hash),
+            "Domain registered: owner={} expires={}",
             domain.owner,
             domain.expiration
         );
@@ -70,10 +70,10 @@ pub mod pns_anchor {
     /// Extends the expiration time
     pub fn renew_domain(
         ctx: Context<RenewDomain>,
+        _name_hash: [u8; 32],
         duration: u64,
     ) -> Result<()> {
         let domain = &mut ctx.accounts.domain_account;
-        let clock = Clock::get()?;
 
         // Validate duration
         require!(duration > 0, PnsError::InvalidDuration);
@@ -89,8 +89,7 @@ pub mod pns_anchor {
         domain.expiration = domain.expiration.saturating_add(duration);
 
         msg!(
-            "Domain renewed: {} | New expiration: {}",
-            hex::encode(&domain.name_hash),
+            "Domain renewed: new_expiration={}",
             domain.expiration
         );
 
@@ -100,6 +99,7 @@ pub mod pns_anchor {
     /// Transfer domain ownership
     pub fn transfer_domain(
         ctx: Context<TransferDomain>,
+        _name_hash: [u8; 32],
         new_owner: Pubkey,
     ) -> Result<()> {
         let domain = &mut ctx.accounts.domain_account;
@@ -111,7 +111,7 @@ pub mod pns_anchor {
             PnsError::DomainNotAvailable
         );
         require!(
-            clock.unix_timestamp as u64 < domain.expiration,
+            (clock.unix_timestamp as u64) < domain.expiration,
             PnsError::DomainExpired
         );
         require!(domain.owner == ctx.accounts.owner.key(), PnsError::Unauthorized);
@@ -120,8 +120,7 @@ pub mod pns_anchor {
         domain.owner = new_owner;
 
         msg!(
-            "Domain transferred: {} | New owner: {}",
-            hex::encode(&domain.name_hash),
+            "Domain transferred: new_owner={}",
             new_owner
         );
 
@@ -131,6 +130,7 @@ pub mod pns_anchor {
     /// Update resolver for a domain
     pub fn set_resolver(
         ctx: Context<SetResolver>,
+        _name_hash: [u8; 32],
         resolver: Option<Pubkey>,
     ) -> Result<()> {
         let domain = &mut ctx.accounts.domain_account;
@@ -140,10 +140,7 @@ pub mod pns_anchor {
 
         domain.resolver = resolver;
 
-        msg!(
-            "Resolver updated for: {}",
-            hex::encode(&domain.name_hash)
-        );
+        msg!("Resolver updated");
 
         Ok(())
     }
@@ -207,7 +204,7 @@ pub struct RegisterDomain<'info> {
         init_if_needed,
         payer = owner,
         space = DomainAccount::SPACE,
-        seeds = [b"domain", &name_hash],
+        seeds = [b"domain", name_hash.as_ref()],
         bump
     )]
     pub domain_account: Account<'info, DomainAccount>,
@@ -226,7 +223,7 @@ pub struct RegisterDomain<'info> {
 pub struct RenewDomain<'info> {
     #[account(
         mut,
-        seeds = [b"domain", &name_hash],
+        seeds = [b"domain", name_hash.as_ref()],
         bump = domain_account.bump
     )]
     pub domain_account: Account<'info, DomainAccount>,
@@ -239,7 +236,7 @@ pub struct RenewDomain<'info> {
 pub struct TransferDomain<'info> {
     #[account(
         mut,
-        seeds = [b"domain", &name_hash],
+        seeds = [b"domain", name_hash.as_ref()],
         bump = domain_account.bump
     )]
     pub domain_account: Account<'info, DomainAccount>,
@@ -252,36 +249,12 @@ pub struct TransferDomain<'info> {
 pub struct SetResolver<'info> {
     #[account(
         mut,
-        seeds = [b"domain", &name_hash],
+        seeds = [b"domain", name_hash.as_ref()],
         bump = domain_account.bump
     )]
     pub domain_account: Account<'info, DomainAccount>,
     
     pub owner: Signer<'info>,
-}
-
-// ============================================================================
-// EVENTS
-// ============================================================================
-
-#[event]
-pub struct DomainRegistered {
-    pub name_hash: [u8; 32],
-    pub owner: Pubkey,
-    pub expiration: u64,
-}
-
-#[event]
-pub struct DomainRenewed {
-    pub name_hash: [u8; 32],
-    pub new_expiration: u64,
-}
-
-#[event]
-pub struct DomainTransferred {
-    pub name_hash: [u8; 32],
-    pub old_owner: Pubkey,
-    pub new_owner: Pubkey,
 }
 
 // ============================================================================

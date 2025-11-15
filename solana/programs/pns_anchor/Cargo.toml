@@ -6,15 +6,23 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "lib"]
 
+[features]
+default = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+test = []
+
 [dependencies]
-anchor-lang = "0.29"
-anchor-spl = "0.29"
-metaplex-token-metadata = { version = "3.1.1", features = ["no-entrypoint"] }
+# Bump Anchor to match your CLI (optional but recommended)
+anchor-lang = { version = "0.32.1", features = ["init-if-needed"] }
+anchor-spl  = "0.32.1"
+hex = "0.4"
 
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
+# <-- Force a safe spl-token that does NOT include token-2022/confidential_transfer
+spl-token = { version = "9", default-features = false, features = ["no-entrypoint"] }
 
-[profile.release.package."*"]
-opt-level = 3
+# If you use Metaplex token metadata, force the stable mpl crate (no token-2022)
+# Uncomment only if you actually use mpl-token-metadata in your code.
+# mpl-token-metadata = { version = "1", default-features = false, features = ["no-entrypoint"] }
+
+# Avoid putting release profiles here (they're ignored when not workspace root).
+# Remove the [profile.release] block from this file.

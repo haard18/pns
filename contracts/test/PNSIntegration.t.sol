@@ -150,7 +150,7 @@ contract PNSIntegrationTest is Test {
         bytes32 hash5 = keccak256(abi.encodePacked("abcde"));
         bytes32 hash7 = keccak256(abi.encodePacked("abcdefg"));
 
-        uint256 price3 = priceOracle.   (hash3, "abc", 1);
+        uint256 price3 = priceOracle.getPrice(hash3, "abc", 1);
         uint256 price4 = priceOracle.getPrice(hash4, "abcd", 1);
         uint256 price5 = priceOracle.getPrice(hash5, "abcde", 1);
         uint256 price7 = priceOracle.getPrice(hash7, "abcdefg", 1);

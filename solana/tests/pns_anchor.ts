@@ -1,13 +1,12 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, Keypair } from "@solana/web3.js";
-import { PnsAnchor } from "../target/types/pns_anchor";
 
 describe("pns_anchor", () => {
   // Configure the client to use the local cluster
   anchor.setProvider(anchor.AnchorProvider.env());
 
-  const program = anchor.workspace.PnsAnchor as Program<PnsAnchor>;
+  const program = anchor.workspace.PnsAnchor as Program<any>;
 
   let registry: PublicKey;
   let registryBump: number;
