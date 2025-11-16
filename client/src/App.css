@@ -1,0 +1,57 @@
+/* Import your Google Font */
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap");
+
+@import "tailwindcss";
+:root {
+  --primary: #4a5dff;
+  --primary-dark: #0c0c7b;
+
+  --accent: #6c8cff;
+  --accent-soft: #E7E7FD;
+  --primary-gradient: linear-gradient(
+    360deg,
+    #020215 0%,
+    #020215 75%,
+    #080840 90%,
+    #0c0c7b 100%
+  );
+
+  --bg-dark: #020215;
+  --bg-mid: #0a0347;
+  --bg-light: #f3f6ff;
+
+  --text-light: #f6f6f8;
+  --text-black: #000000;
+  --text-soft: #A5B4F3;
+  --glow-start: #2349e2;
+  --glow-end: #020215;
+}
+/* Global styles */
+body {
+  font-family: "Space Grotesk", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+}
+h1 {
+  font-family: "Gloock", serif;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 3px;
+}
+/* .ibm-plex-mono-regular {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 400;
+  font-style: normal;
+} */
+.card{
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 400;
+  font-style: normal;
+}
+/* .gloock-regular {
+  font-family: "Gloock", serif;
+  font-weight: 400;
+  font-style: normal;
+}
+ */
