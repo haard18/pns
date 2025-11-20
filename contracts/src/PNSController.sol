@@ -1,26 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
-import "./PNSRegistry.sol";
-import "./PNSRegistrar.sol";
-import "./PNSResolver.sol";
+import { PNSRegistry } from "./PNSRegistry.sol";
+import { PNSRegistrar } from "./PNSRegistrar.sol";
+import { PNSResolver } from "./PNSResolver.sol";
+import { PNSPriceOracle } from "./PNSPriceOracle.sol";
 
 /**
  * @title PNSController
  * @dev User-facing interface for PNS operations
  * Provides simplified registration flow, batch operations, and emergency functions
  */
-contract PNSController is
-    Ownable,
-    Initializable,
-    UUPSUpgradeable,
-    ReentrancyGuard
-{
+contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGuard {
     constructor() Ownable(msg.sender) {}
 
     /// @notice Reference to registry contract
@@ -34,12 +30,12 @@ contract PNSController is
 
     /// @notice Emergency pause flag
     bool public paused = false;
-    
+
     /// @notice Reference to price oracle
     PNSPriceOracle public priceOracle;
 
     /// @notice Registration fee in basis points (0.5% = 50)
-    uint256 public registrationFeeBPS = 50;
+    uint256 public registrationFeeBps = 50;
 
     /// @notice Fee recipient
     address public feeRecipient;
@@ -53,20 +49,10 @@ contract PNSController is
     // ============ Events ============
 
     /// @notice Emitted when a domain is registered via controller
-    event DomainRegistered(
-        string indexed name,
-        address indexed owner,
-        uint256 duration,
-        uint256 totalCost
-    );
+    event DomainRegistered(string indexed name, address indexed owner, uint256 duration, uint256 totalCost);
 
     /// @notice Emitted when a domain is renewed via controller
-    event DomainRenewed(
-        string indexed name,
-        address indexed owner,
-        uint256 duration,
-        uint256 totalCost
-    );
+    event DomainRenewed(string indexed name, address indexed owner, uint256 duration, uint256 totalCost);
 
     /// @notice Emitted when pause state changes
     event PauseStateChanged(bool isPaused);
@@ -98,20 +84,20 @@ contract PNSController is
         address _registry,
         address _registrar,
         address _resolver,
-        address _feeRecipient
+        address _feeRecipient,
+        address _priceOracle
     ) external initializer {
         require(_registry != address(0), "Controller: Invalid registry");
         require(_registrar != address(0), "Controller: Invalid registrar");
         require(_resolver != address(0), "Controller: Invalid resolver");
-        require(
-            _feeRecipient != address(0),
-            "Controller: Invalid fee recipient"
-        );
+        require(_feeRecipient != address(0), "Controller: Invalid fee recipient");
+        require(_priceOracle != address(0), "Controller: Invalid price oracle");
 
         registry = PNSRegistry(_registry);
         registrar = PNSRegistrar(_registrar);
         defaultResolver = PNSResolver(_resolver);
         feeRecipient = _feeRecipient;
+        priceOracle = PNSPriceOracle(_priceOracle);
     }
 
     // ============ Admin Functions ============
@@ -130,9 +116,9 @@ contract PNSController is
      * @dev Sets registration fee in basis points
      * @param bps Basis points (e.g., 50 = 0.5%)
      */
-    function setRegistrationFeeBPS(uint256 bps) external onlyOwner {
+    function setRegistrationFeeBps(uint256 bps) external onlyOwner {
         require(bps <= 10000, "Controller: Invalid BPS");
-        registrationFeeBPS = bps;
+        registrationFeeBps = bps;
     }
 
     /**
@@ -142,6 +128,14 @@ contract PNSController is
     function setFeeRecipient(address _recipient) external onlyOwner {
         require(_recipient != address(0), "Controller: Invalid recipient");
         feeRecipient = _recipient;
+    }
+
+    /**
+     * @dev Sets the price oracle
+     */
+    function setPriceOracle(address _oracle) external onlyOwner {
+        require(_oracle != address(0), "Controller: Invalid oracle");
+        priceOracle = PNSPriceOracle(_oracle);
     }
 
     /**
@@ -170,12 +164,12 @@ contract PNSController is
      * @param duration Duration in years
      * @param resolveAddr Address to resolve the domain to
      */
-    function registerWithAddress(
-        string calldata name,
-        address owner,
-        uint256 duration,
-        address resolveAddr
-    ) external payable whenNotPaused nonReentrant {
+    function registerWithAddress(string calldata name, address owner, uint256 duration, address resolveAddr)
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+    {
         require(owner != address(0), "Controller: Invalid owner");
         require(duration > 0 && duration <= 10, "Controller: Invalid duration");
 
@@ -185,12 +179,7 @@ contract PNSController is
         bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
 
         // Register the domain
-        registrar.register{value: msg.value}(
-            name,
-            owner,
-            duration,
-            address(defaultResolver)
-        );
+        registrar.register{value: msg.value}(name, owner, duration, address(defaultResolver));
 
         // Set address resolution
         if (resolveAddr != address(0)) {
@@ -227,12 +216,7 @@ contract PNSController is
         bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
 
         // Register the domain
-        registrar.register{value: msg.value}(
-            name,
-            owner,
-            duration,
-            address(defaultResolver)
-        );
+        registrar.register{value: msg.value}(name, owner, duration, address(defaultResolver));
 
         // Set resolution and metadata
         if (resolveAddr != address(0)) {
@@ -261,22 +245,18 @@ contract PNSController is
      * @param owner Owner address
      * @param duration Duration in years
      */
-    function registerDomain(
-        string calldata name,
-        address owner,
-        uint256 duration
-    ) external payable whenNotPaused nonReentrant {
+    function registerDomain(string calldata name, address owner, uint256 duration)
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+    {
         require(owner != address(0), "Controller: Invalid owner");
         require(duration > 0 && duration <= 10, "Controller: Invalid duration");
 
         _checkRateLimit(msg.sender);
 
-        registrar.register{value: msg.value}(
-            name,
-            owner,
-            duration,
-            address(defaultResolver)
-        );
+        registrar.register{value: msg.value}(name, owner, duration, address(defaultResolver));
 
         emit DomainRegistered(name, owner, duration, msg.value);
     }
@@ -287,11 +267,12 @@ contract PNSController is
      * @param owner Owner address (same for all)
      * @param duration Duration in years (same for all)
      */
-    function batchRegister(
-        string[] calldata names,
-        address owner,
-        uint256 duration
-    ) external payable whenNotPaused nonReentrant {
+    function batchRegister(string[] calldata names, address owner, uint256 duration)
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+    {
         require(names.length > 0, "Controller: Empty batch");
         require(names.length <= 10, "Controller: Batch too large");
         require(owner != address(0), "Controller: Invalid owner");
@@ -304,21 +285,13 @@ contract PNSController is
             totalCost += price;
         }
 
-        require(
-            msg.value >= totalCost,
-            "Controller: Insufficient total payment"
-        );
+        require(msg.value >= totalCost, "Controller: Insufficient total payment");
 
         for (uint256 i = 0; i < names.length; i++) {
             bytes32 hash = keccak256(abi.encodePacked(names[i], ".poly"));
             uint256 price = priceOracle.getPrice(hash, names[i], duration);
 
-            registrar.register{value: price}(
-                names[i],
-                owner,
-                duration,
-                address(defaultResolver)
-            );
+            registrar.register{value: price}(names[i], owner, duration, address(defaultResolver));
         }
 
         emit DomainRegistered("batch", owner, duration, totalCost);
@@ -331,10 +304,7 @@ contract PNSController is
      * @param name Domain name
      * @param duration Renewal duration in years
      */
-    function renewDomain(
-        string calldata name,
-        uint256 duration
-    ) external payable whenNotPaused nonReentrant {
+    function renewDomain(string calldata name, uint256 duration) external payable whenNotPaused nonReentrant {
         require(duration > 0 && duration <= 10, "Controller: Invalid duration");
 
         registrar.renew{value: msg.value}(name, duration);
@@ -347,10 +317,7 @@ contract PNSController is
      * @param names Array of domain names
      * @param duration Renewal duration in years (same for all)
      */
-    function batchRenew(
-        string[] calldata names,
-        uint256 duration
-    ) external payable whenNotPaused nonReentrant {
+    function batchRenew(string[] calldata names, uint256 duration) external payable whenNotPaused nonReentrant {
         require(names.length > 0, "Controller: Empty batch");
         require(names.length <= 10, "Controller: Batch too large");
         require(duration > 0 && duration <= 10, "Controller: Invalid duration");
@@ -369,16 +336,14 @@ contract PNSController is
      * @param name Domain name
      * @return True if available
      */
-    function isDomainAvailable(
-        string calldata name
-    ) external view returns (bool) {
+    function isDomainAvailable(string calldata name) external view returns (bool) {
         bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
 
         if (!registry.exists(nameHash)) {
             return true;
         }
 
-        (, , uint64 expiration) = registry.getNameRecord(nameHash);
+        (,, uint64 expiration) = registry.getNameRecord(nameHash);
         return expiration + registrar.gracePeriod() <= block.timestamp;
     }
 
@@ -387,13 +352,11 @@ contract PNSController is
      * @param name Domain name
      * @return Expiration timestamp
      */
-    function getDomainExpiration(
-        string calldata name
-    ) external view returns (uint64) {
+    function getDomainExpiration(string calldata name) external view returns (uint64) {
         bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
         require(registry.exists(nameHash), "Controller: Domain not found");
 
-        (, , uint64 expiration) = registry.getNameRecord(nameHash);
+        (,, uint64 expiration) = registry.getNameRecord(nameHash);
         return expiration;
     }
 
@@ -402,13 +365,11 @@ contract PNSController is
      * @param name Domain name
      * @return Owner address
      */
-    function getDomainOwner(
-        string calldata name
-    ) external view returns (address) {
+    function getDomainOwner(string calldata name) external view returns (address) {
         bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
         require(registry.exists(nameHash), "Controller: Domain not found");
 
-        (address owner, , ) = registry.getNameRecord(nameHash);
+        (address owner,,) = registry.getNameRecord(nameHash);
         return owner;
     }
 
@@ -417,9 +378,7 @@ contract PNSController is
      * @param name Domain name
      * @return Resolver address
      */
-    function getDomainResolver(
-        string calldata name
-    ) external view returns (address) {
+    function getDomainResolver(string calldata name) external view returns (address) {
         bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
         return registry.getResolver(nameHash);
     }
@@ -433,7 +392,7 @@ contract PNSController is
         uint256 balance = address(this).balance;
         require(balance > 0, "Controller: No funds");
 
-        (bool success, ) = owner().call{value: balance}("");
+        (bool success,) = owner().call{value: balance}("");
         require(success, "Controller: Withdrawal failed");
 
         emit EmergencyWithdrawal(owner(), balance);
@@ -443,15 +402,10 @@ contract PNSController is
      * @dev Emergency withdrawal of specific amount
      * @param amount Amount to withdraw
      */
-    function emergencyWithdrawAmount(
-        uint256 amount
-    ) external onlyOwner nonReentrant {
-        require(
-            amount <= address(this).balance,
-            "Controller: Insufficient balance"
-        );
+    function emergencyWithdrawAmount(uint256 amount) external onlyOwner nonReentrant {
+        require(amount <= address(this).balance, "Controller: Insufficient balance");
 
-        (bool success, ) = owner().call{value: amount}("");
+        (bool success,) = owner().call{value: amount}("");
         require(success, "Controller: Withdrawal failed");
 
         emit EmergencyWithdrawal(owner(), amount);
@@ -465,10 +419,7 @@ contract PNSController is
      */
     function _checkRateLimit(address user) internal {
         uint256 day = block.timestamp / 1 days;
-        require(
-            registrationCount[user][day] < rateLimitPerDay,
-            "Controller: Rate limit exceeded"
-        );
+        require(registrationCount[user][day] < rateLimitPerDay, "Controller: Rate limit exceeded");
         registrationCount[user][day]++;
     }
 
@@ -479,10 +430,7 @@ contract PNSController is
      */
     function _checkRateLimit(address user, uint256 count) internal {
         uint256 day = block.timestamp / 1 days;
-        require(
-            registrationCount[user][day] + count <= rateLimitPerDay,
-            "Controller: Rate limit exceeded"
-        );
+        require(registrationCount[user][day] + count <= rateLimitPerDay, "Controller: Rate limit exceeded");
         registrationCount[user][day] += count;
     }
 
@@ -499,7 +447,5 @@ contract PNSController is
      * @dev Authorizes upgrade to new implementation
      * @param newImplementation Address of new implementation
      */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyOwner {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

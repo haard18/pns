@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import { Test } from "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
 
-import "../src/PNSRegistry.sol";
-import "../src/PNSPriceOracle.sol";
-import "../src/PNSResolver.sol";
-import "../src/PNSRegistrar.sol";
-import "../src/PNSController.sol";
-import "../src/PNSDomainNFT.sol";
+import { PNSRegistry } from "../src/PNSRegistry.sol";
+import { PNSPriceOracle } from "../src/PNSPriceOracle.sol";
+import { PNSResolver } from "../src/PNSResolver.sol";
+import { PNSRegistrar } from "../src/PNSRegistrar.sol";
+import { PNSController } from "../src/PNSController.sol";
+import { PNSDomainNFT } from "../src/PNSDomainNFT.sol";
 
 /**
  * @title PNSIntegrationTest
@@ -45,21 +45,11 @@ contract PNSIntegrationTest is Test {
 
         // Deploy registrar
         registrar = new PNSRegistrar();
-        registrar.initialize(
-            address(registry),
-            address(priceOracle),
-            treasury,
-            admin
-        );
+        registrar.initialize(address(registry), address(priceOracle), treasury, admin);
 
         // Deploy controller
         controller = new PNSController();
-        controller.initialize(
-            address(registry),
-            address(registrar),
-            address(resolver),
-            admin
-        );
+        controller.initialize(address(registry), address(registrar), address(resolver), admin, address(priceOracle));
 
         // Deploy NFT
         nft = new PNSDomainNFT(address(registry), "https://pns.poly/metadata/");
@@ -74,7 +64,7 @@ contract PNSIntegrationTest is Test {
         // Grant registrar role to controller for direct calls from tests
         registrar.grantRole(registrar.CONTROLLER_ROLE(), address(controller));
         registrar.grantRole(registrar.ADMIN_ROLE(), admin);
-        
+
         // Grant resolver role to controller so it can set resolver records
         resolver.grantRole(resolver.REGISTRY_ROLE(), address(controller));
 
@@ -102,8 +92,7 @@ contract PNSIntegrationTest is Test {
         registry.registerName(nameHash, user1, address(resolver), expiration);
 
         assertTrue(registry.exists(nameHash));
-        (address nameOwner, address resolverAddr, uint64 exp) = registry
-            .getNameRecord(nameHash);
+        (address nameOwner, address resolverAddr, uint64 exp) = registry.getNameRecord(nameHash);
         assertEq(nameOwner, user1);
         assertEq(resolverAddr, address(resolver));
         assertEq(exp, expiration);
@@ -122,7 +111,7 @@ contract PNSIntegrationTest is Test {
         vm.startPrank(user1);
         registry.transferName(nameHash, user2);
 
-        (address nameOwner, , ) = registry.getNameRecord(nameHash);
+        (address nameOwner,,) = registry.getNameRecord(nameHash);
         assertEq(nameOwner, user2);
         vm.stopPrank();
     }
@@ -203,8 +192,7 @@ contract PNSIntegrationTest is Test {
 
     function testSetContentHash() public {
         bytes32 nameHash = keccak256(abi.encodePacked("content_test"));
-        bytes
-            memory contentHash = hex"1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        bytes memory contentHash = hex"1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
         vm.startPrank(admin);
         resolver.grantRole(resolver.REGISTRY_ROLE(), admin);
@@ -232,7 +220,7 @@ contract PNSIntegrationTest is Test {
         controller.registerDomain{value: price}("alice", user1, 1);
 
         assertTrue(registry.exists(nameHash));
-        (address nameOwner, , ) = registry.getNameRecord(nameHash);
+        (address nameOwner,,) = registry.getNameRecord(nameHash);
         assertEq(nameOwner, user1);
 
         vm.stopPrank();
@@ -270,11 +258,11 @@ contract PNSIntegrationTest is Test {
         controller.registerDomain{value: price}("charlie", user1, 1);
 
         uint64 originalExp;
-        (, , originalExp) = registry.getNameRecord(nameHash);
+        (,, originalExp) = registry.getNameRecord(nameHash);
 
         // Stop user1 prank
         vm.stopPrank();
-        
+
         // Grant user1 the controller role so they can call registrar directly
         vm.startPrank(admin);
         registrar.grantRole(registrar.CONTROLLER_ROLE(), user1);
@@ -286,7 +274,7 @@ contract PNSIntegrationTest is Test {
         registrar.renew{value: renewPrice}("charlie", 1);
 
         uint64 newExp;
-        (, , newExp) = registry.getNameRecord(nameHash);
+        (,, newExp) = registry.getNameRecord(nameHash);
         assertTrue(newExp > originalExp);
 
         vm.stopPrank();
@@ -318,12 +306,7 @@ contract PNSIntegrationTest is Test {
         bytes32 nameHash = keccak256(abi.encodePacked("user2domain", ".poly"));
         uint256 price = priceOracle.getPrice(nameHash, "user2domain", 1);
 
-        controller.registerWithAddress{value: price}(
-            "user2domain",
-            user1,
-            1,
-            user1
-        );
+        controller.registerWithAddress{value: price}("user2domain", user1, 1, user1);
 
         assertTrue(registry.exists(nameHash));
         address stored = resolver.getPolygonAddr(nameHash);
@@ -339,13 +322,7 @@ contract PNSIntegrationTest is Test {
         uint256 price = priceOracle.getPrice(nameHash, "metadomain", 1);
 
         controller.registerWithMetadata{value: price}(
-            "metadomain",
-            user1,
-            1,
-            user1,
-            "https://example.com/avatar.png",
-            "https://example.com",
-            "user@example.com"
+            "metadomain", user1, 1, user1, "https://example.com/avatar.png", "https://example.com", "user@example.com"
         );
 
         assertTrue(registry.exists(nameHash));
@@ -386,7 +363,7 @@ contract PNSIntegrationTest is Test {
         for (uint256 i = 0; i < names.length; i++) {
             bytes32 hash = keccak256(abi.encodePacked(names[i], ".poly"));
             assertTrue(registry.exists(hash), string.concat("Domain not registered: ", names[i]));
-            (address domainOwner, , ) = registry.getNameRecord(hash);
+            (address domainOwner,,) = registry.getNameRecord(hash);
             assertEq(domainOwner, user1, "Owner mismatch");
         }
 

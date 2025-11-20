@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @title PNSPriceOracle
@@ -48,11 +48,7 @@ contract PNSPriceOracle is Ownable, Initializable, UUPSUpgradeable {
 
     /// @notice Emitted when prices are updated
     event PricesUpdated(
-        uint256 shortPrice,
-        uint256 midPrice,
-        uint256 regularPrice,
-        uint256 longPrice,
-        uint256 timestamp
+        uint256 shortPrice, uint256 midPrice, uint256 regularPrice, uint256 longPrice, uint256 timestamp
     );
 
     /// @notice Emitted when a premium price is set
@@ -84,12 +80,10 @@ contract PNSPriceOracle is Ownable, Initializable, UUPSUpgradeable {
      * @param _regularPrice Price for 5-6 char domains
      * @param _longPrice Price for 7+ char domains
      */
-    function setPrices(
-        uint256 _shortPrice,
-        uint256 _midPrice,
-        uint256 _regularPrice,
-        uint256 _longPrice
-    ) external onlyOwner {
+    function setPrices(uint256 _shortPrice, uint256 _midPrice, uint256 _regularPrice, uint256 _longPrice)
+        external
+        onlyOwner
+    {
         require(_shortPrice > 0, "PNS: Invalid short price");
         require(_midPrice > 0, "PNS: Invalid mid price");
         require(_regularPrice > 0, "PNS: Invalid regular price");
@@ -102,13 +96,7 @@ contract PNSPriceOracle is Ownable, Initializable, UUPSUpgradeable {
 
         lastPriceUpdate = block.timestamp;
 
-        emit PricesUpdated(
-            _shortPrice,
-            _midPrice,
-            _regularPrice,
-            _longPrice,
-            block.timestamp
-        );
+        emit PricesUpdated(_shortPrice, _midPrice, _regularPrice, _longPrice, block.timestamp);
     }
 
     /**
@@ -140,11 +128,7 @@ contract PNSPriceOracle is Ownable, Initializable, UUPSUpgradeable {
      * @param numYears Number of years to register/renew
      * @return Total price in wei
      */
-    function getPrice(
-        bytes32 nameHash,
-        string calldata name,
-        uint256 numYears
-    ) external view returns (uint256) {
+    function getPrice(bytes32 nameHash, string calldata name, uint256 numYears) external view returns (uint256) {
         require(numYears > 0, "PNS: Invalid duration");
 
         // Check for premium pricing first
@@ -154,10 +138,7 @@ contract PNSPriceOracle is Ownable, Initializable, UUPSUpgradeable {
 
         // Calculate tiered pricing based on length
         uint256 length = bytes(name).length;
-        require(
-            length >= MIN_DOMAIN_LENGTH && length <= MAX_DOMAIN_LENGTH,
-            "PNS: Invalid domain length"
-        );
+        require(length >= MIN_DOMAIN_LENGTH && length <= MAX_DOMAIN_LENGTH, "PNS: Invalid domain length");
 
         uint256 yearlyPrice;
 
@@ -180,21 +161,14 @@ contract PNSPriceOracle is Ownable, Initializable, UUPSUpgradeable {
      * @param name The domain name string
      * @return yearlyPrice Price in wei per year
      */
-    function getYearlyPrice(bytes32 nameHash, string calldata name)
-        external
-        view
-        returns (uint256 yearlyPrice)
-    {
+    function getYearlyPrice(bytes32 nameHash, string calldata name) external view returns (uint256 yearlyPrice) {
         // Check for premium pricing first
         if (premiumNamesEnabled && premiumPrices[nameHash] > 0) {
             return premiumPrices[nameHash];
         }
 
         uint256 length = bytes(name).length;
-        require(
-            length >= MIN_DOMAIN_LENGTH && length <= MAX_DOMAIN_LENGTH,
-            "PNS: Invalid domain length"
-        );
+        require(length >= MIN_DOMAIN_LENGTH && length <= MAX_DOMAIN_LENGTH, "PNS: Invalid domain length");
 
         if (length <= 3) {
             return shortDomainPrice;
@@ -234,9 +208,5 @@ contract PNSPriceOracle is Ownable, Initializable, UUPSUpgradeable {
      * @dev Authorizes upgrade to new implementation
      * @param newImplementation Address of new implementation
      */
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        override
-        onlyOwner
-    {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

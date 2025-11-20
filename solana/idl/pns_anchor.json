@@ -7,10 +7,122 @@
   },
   "instructions": [
     {
+      "name": "delete_record",
+      "docs": [
+        "Deletes a record PDA and frees rent."
+      ],
+      "discriminator": [
+        177,
+        191,
+        85,
+        153,
+        140,
+        226,
+        175,
+        112
+      ],
+      "accounts": [
+        {
+          "name": "domain_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  111,
+                  109,
+                  97,
+                  105,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "name_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "record_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "domain_account"
+              },
+              {
+                "kind": "arg",
+                "path": "key_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "name_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "key_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "initialize",
       "docs": [
-        "Initialize the global registry PDA",
-        "This should be called once at deployment"
+        "Initialize the global registry PDA"
       ],
       "discriminator": [
         175,
@@ -54,13 +166,147 @@
           "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "polygon_registry",
+          "type": {
+            "array": [
+              "u8",
+              20
+            ]
+          }
+        },
+        {
+          "name": "conflict_policy",
+          "type": {
+            "defined": {
+              "name": "ConflictPolicy"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "mirror_domain",
+      "docs": [
+        "Mirrors Polygon state into a deterministic Domain PDA."
+      ],
+      "discriminator": [
+        231,
+        107,
+        195,
+        114,
+        216,
+        227,
+        103,
+        107
+      ],
+      "accounts": [
+        {
+          "name": "domain_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  111,
+                  109,
+                  97,
+                  105,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "name_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "polygon_owner",
+          "type": {
+            "array": [
+              "u8",
+              20
+            ]
+          }
+        },
+        {
+          "name": "solana_delegate",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "expiration",
+          "type": "u64"
+        },
+        {
+          "name": "resolver",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "polygon_tx",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "register_domain",
       "docs": [
-        "Register a new domain",
-        "Creates a DomainAccount PDA derived from nameHash"
+        "Deprecated user-facing registration (kept for backward compatibility).",
+        "Backend should use `mirror_domain`."
       ],
       "discriminator": [
         236,
@@ -152,8 +398,7 @@
     {
       "name": "renew_domain",
       "docs": [
-        "Renew an existing domain",
-        "Extends the expiration time"
+        "Renew an existing domain via legacy flow."
       ],
       "discriminator": [
         198,
@@ -213,7 +458,7 @@
     {
       "name": "set_resolver",
       "docs": [
-        "Update resolver for a domain"
+        "Update resolver (legacy/local convenience)."
       ],
       "discriminator": [
         137,
@@ -273,9 +518,100 @@
       ]
     },
     {
+      "name": "set_wrap_state",
+      "docs": [
+        "Marks wrap state/NFT mint pointer (used during wrap/unwrap flows)."
+      ],
+      "discriminator": [
+        223,
+        145,
+        248,
+        225,
+        221,
+        144,
+        1,
+        192
+      ],
+      "accounts": [
+        {
+          "name": "domain_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  111,
+                  109,
+                  97,
+                  105,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "name_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_name_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "nft_mint",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "wrap_state",
+          "type": {
+            "defined": {
+              "name": "WrapState"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "transfer_domain",
       "docs": [
-        "Transfer domain ownership"
+        "Transfer delegate ownership (legacy)."
       ],
       "discriminator": [
         129,
@@ -331,6 +667,228 @@
           "type": "pubkey"
         }
       ]
+    },
+    {
+      "name": "update_delegate",
+      "docs": [
+        "Updates the Solana delegate allowed to co-sign record writes."
+      ],
+      "discriminator": [
+        190,
+        202,
+        103,
+        138,
+        167,
+        197,
+        25,
+        9
+      ],
+      "accounts": [
+        {
+          "name": "domain_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  111,
+                  109,
+                  97,
+                  105,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "name_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_name_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "new_delegate",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "upsert_record",
+      "docs": [
+        "Upserts a record PDA (address/text/content/custom)."
+      ],
+      "discriminator": [
+        240,
+        230,
+        232,
+        247,
+        136,
+        224,
+        37,
+        146
+      ],
+      "accounts": [
+        {
+          "name": "domain_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  111,
+                  109,
+                  97,
+                  105,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "name_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "record_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "domain_account"
+              },
+              {
+                "kind": "arg",
+                "path": "key_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "key_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "record_type",
+          "type": {
+            "defined": {
+              "name": "RecordType"
+            }
+          }
+        },
+        {
+          "name": "data",
+          "type": "bytes"
+        },
+        {
+          "name": "source_chain",
+          "type": {
+            "defined": {
+              "name": "ChainSource"
+            }
+          }
+        },
+        {
+          "name": "version",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -348,6 +906,19 @@
       ]
     },
     {
+      "name": "RecordAccount",
+      "discriminator": [
+        228,
+        61,
+        107,
+        126,
+        20,
+        6,
+        79,
+        241
+      ]
+    },
+    {
       "name": "Registry",
       "discriminator": [
         47,
@@ -361,11 +932,78 @@
       ]
     }
   ],
+  "events": [
+    {
+      "name": "DelegateUpdated",
+      "discriminator": [
+        103,
+        221,
+        114,
+        118,
+        109,
+        141,
+        48,
+        134
+      ]
+    },
+    {
+      "name": "DomainMirrored",
+      "discriminator": [
+        107,
+        11,
+        54,
+        202,
+        200,
+        222,
+        251,
+        96
+      ]
+    },
+    {
+      "name": "RecordDeleted",
+      "discriminator": [
+        126,
+        72,
+        56,
+        173,
+        183,
+        249,
+        7,
+        164
+      ]
+    },
+    {
+      "name": "RecordUpdated",
+      "discriminator": [
+        22,
+        215,
+        203,
+        119,
+        23,
+        134,
+        237,
+        84
+      ]
+    },
+    {
+      "name": "WrapStateChanged",
+      "discriminator": [
+        42,
+        36,
+        102,
+        243,
+        127,
+        27,
+        76,
+        177
+      ]
+    }
+  ],
   "errors": [
     {
       "code": 6000,
       "name": "Unauthorized",
-      "msg": "Unauthorized - caller is not domain owner"
+      "msg": "Unauthorized - caller is not allowed"
     },
     {
       "code": 6001,
@@ -386,9 +1024,74 @@
       "code": 6004,
       "name": "InvalidName",
       "msg": "Invalid domain name"
+    },
+    {
+      "code": 6005,
+      "name": "RecordTooLarge",
+      "msg": "Record payload exceeds maximum length"
+    },
+    {
+      "code": 6006,
+      "name": "ConflictViolation",
+      "msg": "Conflict policy prevented the write"
     }
   ],
   "types": [
+    {
+      "name": "ChainSource",
+      "repr": {
+        "kind": "rust"
+      },
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Polygon"
+          },
+          {
+            "name": "Solana"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConflictPolicy",
+      "repr": {
+        "kind": "rust"
+      },
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "PolygonPriority"
+          },
+          {
+            "name": "LatestWriteWins"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DelegateUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "name_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "delegate",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
     {
       "name": "DomainAccount",
       "type": {
@@ -418,8 +1121,226 @@
             "type": "u64"
           },
           {
+            "name": "polygon_owner",
+            "type": {
+              "array": [
+                "u8",
+                20
+              ]
+            }
+          },
+          {
+            "name": "last_polygon_tx",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "nft_mint",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "wrap_state",
+            "type": {
+              "defined": {
+                "name": "WrapState"
+              }
+            }
+          },
+          {
+            "name": "record_count",
+            "type": "u16"
+          },
+          {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DomainMirrored",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "name_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "solana_delegate",
+            "type": "pubkey"
+          },
+          {
+            "name": "polygon_owner",
+            "type": {
+              "array": [
+                "u8",
+                20
+              ]
+            }
+          },
+          {
+            "name": "expiration",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RecordAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "domain",
+            "type": "pubkey"
+          },
+          {
+            "name": "key_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "record_type",
+            "type": {
+              "defined": {
+                "name": "RecordType"
+              }
+            }
+          },
+          {
+            "name": "source_chain",
+            "type": {
+              "defined": {
+                "name": "ChainSource"
+              }
+            }
+          },
+          {
+            "name": "version",
+            "type": "u64"
+          },
+          {
+            "name": "last_updated_slot",
+            "type": "u64"
+          },
+          {
+            "name": "data",
+            "type": "bytes"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RecordDeleted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "name_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "key_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RecordType",
+      "repr": {
+        "kind": "rust"
+      },
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Address"
+          },
+          {
+            "name": "Text"
+          },
+          {
+            "name": "ContentHash"
+          },
+          {
+            "name": "Custom"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RecordUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "name_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "key_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "record_type",
+            "type": {
+              "defined": {
+                "name": "RecordType"
+              }
+            }
+          },
+          {
+            "name": "source_chain",
+            "type": {
+              "defined": {
+                "name": "ChainSource"
+              }
+            }
+          },
+          {
+            "name": "version",
+            "type": "u64"
           }
         ]
       }
@@ -434,12 +1355,84 @@
             "type": "pubkey"
           },
           {
+            "name": "polygon_registry",
+            "type": {
+              "array": [
+                "u8",
+                20
+              ]
+            }
+          },
+          {
             "name": "domain_count",
             "type": "u64"
           },
           {
+            "name": "conflict_policy",
+            "type": {
+              "defined": {
+                "name": "ConflictPolicy"
+              }
+            }
+          },
+          {
             "name": "bump",
             "type": "u8"
+          },
+          {
+            "name": "version",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WrapState",
+      "repr": {
+        "kind": "rust"
+      },
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "None"
+          },
+          {
+            "name": "Polygon"
+          },
+          {
+            "name": "Solana"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WrapStateChanged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "name_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "wrap_state",
+            "type": {
+              "defined": {
+                "name": "WrapState"
+              }
+            }
+          },
+          {
+            "name": "nft_mint",
+            "type": {
+              "option": "pubkey"
+            }
           }
         ]
       }

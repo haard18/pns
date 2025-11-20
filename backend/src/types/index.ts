@@ -1,5 +1,9 @@
 export type ChainType = 'polygon' | 'solana';
 
+export type RecordType = 'address' | 'text' | 'contentHash' | 'custom';
+
+export type WrapState = 'none' | 'polygon' | 'solana';
+
 export interface DomainRecord {
   name: string;
   chain: ChainType;
@@ -9,6 +13,9 @@ export interface DomainRecord {
   metadata?: string;
   txHash: string;
   registeredAt: number;
+  polygonOwner?: string;
+  solanaPda?: string;
+  wrapState?: WrapState;
 }
 
 export interface RegisterRequest {
@@ -39,13 +46,6 @@ export interface PriceResponse {
   priceLamports?: string;
 }
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  timestamp: number;
-}
-
 export interface PolygonConfig {
   rpcUrl: string;
   chainId: number;
@@ -71,7 +71,6 @@ export interface RegistryAccountData {
   bump: number;
 }
 
-// API Response types
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -82,4 +81,63 @@ export interface ApiResponse<T = any> {
 export interface SolanaDomainPDA {
   address: string;
   bump: number;
+}
+
+export interface DomainMapping {
+  nameHash: string;
+  name: string;
+  polygonOwner: string;
+  solanaDelegate?: string;
+  solanaPda?: string;
+  expiration?: number;
+  wrapState?: WrapState;
+  lastPolygonTx?: string;
+  lastSolanaSlot?: number;
+}
+
+export interface PersistedRecord {
+  nameHash: string;
+  keyHash: string;
+  key: string;
+  recordType: RecordType;
+  value: string;
+  sourceChain: ChainType;
+  version: number;
+}
+
+export interface RecordWriteRequest {
+  name: string;
+  chain: ChainType;
+  recordType: RecordType;
+  key: string;
+  value: string;
+  coinType?: number;
+  propagate?: boolean;
+  customKeyHash?: string;
+}
+
+export interface RecordDeleteRequest {
+  name: string;
+  chain: ChainType;
+  key: string;
+  recordType: RecordType;
+  customKeyHash?: string;
+}
+
+export interface RecordResponse extends PersistedRecord {
+  txHash?: string;
+}
+
+export interface NFTWrapRequest {
+  name: string;
+  fromChain: ChainType;
+  targetChain: ChainType;
+  owner: string;
+}
+
+export interface NFTMetadata {
+  name: string;
+  description: string;
+  image: string;
+  attributes: Array<{ trait_type: string; value: string }>;
 }

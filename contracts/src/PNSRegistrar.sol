@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
-import "./PNSRegistry.sol";
-import "./PNSPriceOracle.sol";
+import { PNSRegistry } from "./PNSRegistry.sol";
+import { PNSPriceOracle } from "./PNSPriceOracle.sol";
 
 /**
  * @title PNSRegistrar
@@ -64,20 +64,11 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
 
     /// @notice Emitted when a name is registered
     event NameRegistered(
-        bytes32 indexed nameHash,
-        string name,
-        address indexed owner,
-        uint256 price,
-        uint64 expiration
+        bytes32 indexed nameHash, string name, address indexed owner, uint256 price, uint64 expiration
     );
 
     /// @notice Emitted when a name is renewed
-    event NameRenewed(
-        bytes32 indexed nameHash,
-        string name,
-        uint256 price,
-        uint64 newExpiration
-    );
+    event NameRenewed(bytes32 indexed nameHash, string name, uint256 price, uint64 newExpiration);
 
     /// @notice Emitted when a commitment is made
     event CommitmentMade(bytes32 indexed commitment, uint256 timestamp);
@@ -86,18 +77,10 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
     event AuctionStarted(bytes32 indexed nameHash, uint256 endTime);
 
     /// @notice Emitted when an auction bid is placed
-    event AuctionBidPlaced(
-        bytes32 indexed nameHash,
-        address indexed bidder,
-        uint256 amount
-    );
+    event AuctionBidPlaced(bytes32 indexed nameHash, address indexed bidder, uint256 amount);
 
     /// @notice Emitted when an auction ends
-    event AuctionEnded(
-        bytes32 indexed nameHash,
-        address indexed winner,
-        uint256 finalPrice
-    );
+    event AuctionEnded(bytes32 indexed nameHash, address indexed winner, uint256 finalPrice);
 
     /// @notice Emitted when refund is issued
     event RefundIssued(address indexed recipient, uint256 amount);
@@ -106,10 +89,7 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
 
     /// @notice Only controller or admin
     modifier onlyAuthorized() {
-        require(
-            hasRole(CONTROLLER_ROLE, msg.sender) || hasRole(ADMIN_ROLE, msg.sender),
-            "Registrar: Not authorized"
-        );
+        require(hasRole(CONTROLLER_ROLE, msg.sender) || hasRole(ADMIN_ROLE, msg.sender), "Registrar: Not authorized");
         _;
     }
 
@@ -122,12 +102,10 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @param _treasury Treasury address
      * @param admin Initial admin address
      */
-    function initialize(
-        address _registry,
-        address _priceOracle,
-        address _treasury,
-        address admin
-    ) external initializer {
+    function initialize(address _registry, address _priceOracle, address _treasury, address admin)
+        external
+        initializer
+    {
         require(_registry != address(0), "Registrar: Invalid registry");
         require(_priceOracle != address(0), "Registrar: Invalid oracle");
         require(_treasury != address(0), "Registrar: Invalid treasury");
@@ -185,10 +163,7 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @param age Commitment age in seconds
      * @param cooldown Cooldown period in seconds
      */
-    function setCommitmentConfig(uint256 age, uint256 cooldown)
-        external
-        onlyRole(ADMIN_ROLE)
-    {
+    function setCommitmentConfig(uint256 age, uint256 cooldown) external onlyRole(ADMIN_ROLE) {
         require(age > 0, "Registrar: Invalid age");
         require(cooldown > 0, "Registrar: Invalid cooldown");
         commitmentAge = age;
@@ -214,11 +189,11 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @param secret Secret value
      * @return Commitment hash
      */
-    function getCommitmentHash(
-        string calldata name,
-        address owner,
-        string calldata secret
-    ) external pure returns (bytes32) {
+    function getCommitmentHash(string calldata name, address owner, string calldata secret)
+        external
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked(name, owner, secret));
     }
 
@@ -240,13 +215,9 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         bytes32 commitment = keccak256(abi.encodePacked(name, owner, secret));
 
         require(commitments[commitment] > 0, "Registrar: No commitment");
+        require(block.timestamp >= commitments[commitment] + commitmentAge, "Registrar: Commitment too new");
         require(
-            block.timestamp >= commitments[commitment] + commitmentAge,
-            "Registrar: Commitment too new"
-        );
-        require(
-            block.timestamp <= commitments[commitment] + commitmentAge + cooldownPeriod,
-            "Registrar: Commitment expired"
+            block.timestamp <= commitments[commitment] + commitmentAge + cooldownPeriod, "Registrar: Commitment expired"
         );
 
         delete commitments[commitment];
@@ -254,13 +225,9 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         _register(name, owner, duration, resolver);
 
         // Refund excess payment
-        uint256 price = priceOracle.getPrice(
-            keccak256(abi.encodePacked(name, ".poly")),
-            name,
-            duration
-        );
+        uint256 price = priceOracle.getPrice(keccak256(abi.encodePacked(name, ".poly")), name, duration);
         if (msg.value > price) {
-            (bool success, ) = msg.sender.call{value: msg.value - price}("");
+            (bool success,) = msg.sender.call{value: msg.value - price}("");
             require(success, "Registrar: Refund failed");
             emit RefundIssued(msg.sender, msg.value - price);
         }
@@ -275,22 +242,18 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @param duration Registration duration in years
      * @param resolver Resolver address (optional)
      */
-    function register(
-        string calldata name,
-        address owner,
-        uint256 duration,
-        address resolver
-    ) external payable onlyAuthorized nonReentrant {
+    function register(string calldata name, address owner, uint256 duration, address resolver)
+        external
+        payable
+        onlyAuthorized
+        nonReentrant
+    {
         _register(name, owner, duration, resolver);
 
         // Refund excess payment
-        uint256 price = priceOracle.getPrice(
-            keccak256(abi.encodePacked(name, ".poly")),
-            name,
-            duration
-        );
+        uint256 price = priceOracle.getPrice(keccak256(abi.encodePacked(name, ".poly")), name, duration);
         if (msg.value > price) {
-            (bool success, ) = msg.sender.call{value: msg.value - price}("");
+            (bool success,) = msg.sender.call{value: msg.value - price}("");
             require(success, "Registrar: Refund failed");
             emit RefundIssued(msg.sender, msg.value - price);
         }
@@ -303,29 +266,18 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @param duration Duration in years
      * @param resolver Resolver address
      */
-    function _register(
-        string calldata name,
-        address owner,
-        uint256 duration,
-        address resolver
-    ) internal {
+    function _register(string calldata name, address owner, uint256 duration, address resolver) internal {
         bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
 
         // Validate name
         uint256 nameLength = bytes(name).length;
-        require(
-            nameLength >= MIN_NAME_LENGTH && nameLength <= MAX_NAME_LENGTH,
-            "Registrar: Invalid name length"
-        );
+        require(nameLength >= MIN_NAME_LENGTH && nameLength <= MAX_NAME_LENGTH, "Registrar: Invalid name length");
         require(_isValidName(name), "Registrar: Invalid characters");
 
         // Check if name exists and is expired
         if (registry.exists(nameHash)) {
-            (   , , uint64 expiration) = registry.getNameRecord(nameHash);
-            require(
-                expiration + gracePeriod <= block.timestamp,
-                "Registrar: Name not available"
-            );
+            (,, uint64 expiration) = registry.getNameRecord(nameHash);
+            require(expiration + gracePeriod <= block.timestamp, "Registrar: Name not available");
             // Name is available after grace period
         }
 
@@ -344,7 +296,7 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         }
 
         // Transfer payment to treasury
-        (bool success, ) = treasury.call{value: price}("");
+        (bool success,) = treasury.call{value: price}("");
         require(success, "Registrar: Payment transfer failed");
 
         emit NameRegistered(nameHash, name, owner, price, newExpiration);
@@ -357,15 +309,11 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @param name Domain name
      * @param duration Renewal duration in years
      */
-    function renew(string calldata name, uint256 duration)
-        external
-        payable
-        nonReentrant
-    {
+    function renew(string calldata name, uint256 duration) external payable nonReentrant {
         bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
 
         require(registry.exists(nameHash), "Registrar: Name does not exist");
-        (address owner, , uint64 expiration) = registry.getNameRecord(nameHash);
+        (address owner,, uint64 expiration) = registry.getNameRecord(nameHash);
         require(msg.sender == owner, "Registrar: Not name owner");
         require(duration > 0, "Registrar: Invalid duration");
 
@@ -380,12 +328,12 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         registry.renewName(nameHash, renewalExpiration);
 
         // Transfer payment to treasury
-        (bool success, ) = treasury.call{value: price}("");
+        (bool success,) = treasury.call{value: price}("");
         require(success, "Registrar: Payment transfer failed");
 
         // Refund excess
         if (msg.value > price) {
-            (bool refundSuccess, ) = msg.sender.call{value: msg.value - price}("");
+            (bool refundSuccess,) = msg.sender.call{value: msg.value - price}("");
             require(refundSuccess, "Registrar: Refund failed");
             emit RefundIssued(msg.sender, msg.value - price);
         }
@@ -400,19 +348,12 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @param nameHash Name hash
      * @param auctionDuration Duration of auction in seconds
      */
-    function startAuction(bytes32 nameHash, uint256 auctionDuration)
-        external
-        onlyRole(ADMIN_ROLE)
-        nonReentrant
-    {
+    function startAuction(bytes32 nameHash, uint256 auctionDuration) external onlyRole(ADMIN_ROLE) nonReentrant {
         require(auctionDuration > 0, "Registrar: Invalid duration");
         require(!auctions[nameHash].concluded, "Registrar: Auction already concluded");
 
         auctions[nameHash] = PremiumAuction({
-            highestBidder: address(0),
-            highestBid: 0,
-            endTime: block.timestamp + auctionDuration,
-            concluded: false
+            highestBidder: address(0), highestBid: 0, endTime: block.timestamp + auctionDuration, concluded: false
         });
 
         emit AuctionStarted(nameHash, block.timestamp + auctionDuration);
@@ -425,16 +366,11 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
     function placeBid(bytes32 nameHash) external payable nonReentrant {
         require(msg.value > 0, "Registrar: Bid must be positive");
         require(block.timestamp < auctions[nameHash].endTime, "Registrar: Auction ended");
-        require(
-            msg.value > auctions[nameHash].highestBid,
-            "Registrar: Bid too low"
-        );
+        require(msg.value > auctions[nameHash].highestBid, "Registrar: Bid too low");
 
         // Refund previous highest bidder
         if (auctions[nameHash].highestBidder != address(0)) {
-            (bool success, ) = auctions[nameHash].highestBidder.call{
-                value: auctions[nameHash].highestBid
-            }("");
+            (bool success,) = auctions[nameHash].highestBidder.call{value: auctions[nameHash].highestBid}("");
             require(success, "Registrar: Refund failed");
             emit RefundIssued(auctions[nameHash].highestBidder, auctions[nameHash].highestBid);
         }
@@ -451,11 +387,11 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @param name Domain name
      * @param resolver Resolver address (optional)
      */
-    function concludeAuction(
-        bytes32 nameHash,
-        string calldata name,
-        address resolver
-    ) external onlyRole(ADMIN_ROLE) nonReentrant {
+    function concludeAuction(bytes32 nameHash, string calldata name, address resolver)
+        external
+        onlyRole(ADMIN_ROLE)
+        nonReentrant
+    {
         PremiumAuction storage auction = auctions[nameHash];
 
         require(!auction.concluded, "Registrar: Auction already concluded");
@@ -469,7 +405,7 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         registry.registerName(nameHash, auction.highestBidder, resolver, expiration);
 
         // Transfer bid to treasury
-        (bool success, ) = treasury.call{value: auction.highestBid}("");
+        (bool success,) = treasury.call{value: auction.highestBid}("");
         require(success, "Registrar: Payment transfer failed");
 
         emit AuctionEnded(nameHash, auction.highestBidder, auction.highestBid);
@@ -491,9 +427,9 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
             bytes1 char = nameBytes[i];
             // Allow lowercase letters, numbers, and hyphens
             if (
-                !(char >= 0x30 && char <= 0x39) && // 0-9
-                !(char >= 0x61 && char <= 0x7A) && // a-z
-                char != 0x2D // hyphen
+                !(char >= 0x30 && char <= 0x39) // 0-9
+                    && !(char >= 0x61 && char <= 0x7A) // a-z
+                    && char != 0x2D // hyphen
             ) {
                 return false;
             }
@@ -510,11 +446,7 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @param nameHash Name hash
      * @return Auction details
      */
-    function getAuction(bytes32 nameHash)
-        external
-        view
-        returns (PremiumAuction memory)
-    {
+    function getAuction(bytes32 nameHash) external view returns (PremiumAuction memory) {
         return auctions[nameHash];
     }
 
@@ -524,9 +456,5 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @dev Authorizes upgrade to new implementation
      * @param newImplementation Address of new implementation
      */
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        override
-        onlyRole(ADMIN_ROLE)
-    {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(ADMIN_ROLE) {}
 }

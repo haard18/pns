@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import "./PNSRegistry.sol";
+import { PNSRegistry } from "./PNSRegistry.sol";
 
 /**
  * @title PNSDomainNFT
@@ -19,8 +19,6 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
     /// @notice Token ID counter
     uint256 private _tokenIdCounter;
 
-    // ============ Events ============
-
     /// @notice Mapping of name hash to token ID
     mapping(bytes32 => uint256) public nameHashToTokenId;
 
@@ -30,18 +28,29 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
     /// @notice Base URI for metadata
     string public baseURI;
 
+    /// @notice Tracks which chain currently hosts the active wrapper
+    enum MintChain {
+        None,
+        Polygon,
+        Solana
+    }
+
+    mapping(bytes32 => MintChain) public mintChainByNameHash;
+    mapping(uint256 => bool) public frozenToken;
+
     // ============ Events ============
 
     /// @notice Emitted when a domain NFT is minted
-    event DomainMinted(
-        uint256 indexed tokenId,
-        bytes32 indexed nameHash,
-        address indexed owner,
-        string name
-    );
+    event DomainMinted(uint256 indexed tokenId, bytes32 indexed nameHash, address indexed owner, string name);
 
     /// @notice Emitted when a domain NFT is burned
     event DomainBurned(uint256 indexed tokenId, bytes32 indexed nameHash);
+
+    /// @notice Emitted when wrap state flips chains
+    event WrapStateChanged(bytes32 indexed nameHash, MintChain indexed chain);
+
+    /// @notice Emitted when freeze state changes
+    event TokenFrozen(uint256 indexed tokenId, bool frozen);
 
     // ============ Initialization ============
 
@@ -70,6 +79,16 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
         baseURI = newBaseURI;
     }
 
+    /**
+     * @dev Marks a domain as wrapped on Solana to prevent Polygon mint
+     */
+    function markExternalWrap(bytes32 nameHash, MintChain chain) external onlyOwner {
+        require(chain == MintChain.Solana, "NFT: only Solana external wraps");
+        require(mintChainByNameHash[nameHash] != MintChain.Polygon, "NFT: Polygon token exists");
+        mintChainByNameHash[nameHash] = chain;
+        emit WrapStateChanged(nameHash, chain);
+    }
+
     // ============ Minting Functions ============
 
     /**
@@ -79,13 +98,13 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
      * @param nameHash Hash of the domain
      * @param owner NFT owner address
      */
-    function mintDomain(
-        string calldata name,
-        bytes32 nameHash,
-        address owner
-    ) external onlyOwner nonReentrant {
+    function mintDomain(string calldata name, bytes32 nameHash, address owner) external onlyOwner nonReentrant {
         require(owner != address(0), "NFT: Invalid owner");
         require(nameHashToTokenId[nameHash] == 0, "NFT: Domain already minted");
+        require(
+            mintChainByNameHash[nameHash] == MintChain.None || mintChainByNameHash[nameHash] == MintChain.Polygon,
+            "NFT: Wrapped on Solana"
+        );
 
         uint256 tokenId = _tokenIdCounter;
         _tokenIdCounter++;
@@ -94,8 +113,10 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
         tokenIdToNameHash[tokenId] = nameHash;
 
         _safeMint(owner, tokenId);
+        mintChainByNameHash[nameHash] = MintChain.Polygon;
 
         emit DomainMinted(tokenId, nameHash, owner, name);
+        emit WrapStateChanged(nameHash, MintChain.Polygon);
     }
 
     /**
@@ -108,10 +129,29 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
         bytes32 nameHash = tokenIdToNameHash[tokenId];
         delete nameHashToTokenId[nameHash];
         delete tokenIdToNameHash[tokenId];
+        delete frozenToken[tokenId];
+        mintChainByNameHash[nameHash] = MintChain.None;
 
         _burn(tokenId);
 
         emit DomainBurned(tokenId, nameHash);
+        emit WrapStateChanged(nameHash, MintChain.None);
+    }
+
+    /**
+     * @dev Freezes a token before bridging
+     */
+    function freezeToken(uint256 tokenId) external onlyOwner {
+        frozenToken[tokenId] = true;
+        emit TokenFrozen(tokenId, true);
+    }
+
+    /**
+     * @dev Unfreezes a token after bridge completes
+     */
+    function unfreezeToken(uint256 tokenId) external onlyOwner {
+        frozenToken[tokenId] = false;
+        emit TokenFrozen(tokenId, false);
     }
 
     // ============ Transfer Overrides ============
@@ -119,15 +159,16 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
     /**
      * @dev Overrides transfer to update registry
      */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) public override nonReentrant {
-        require(_ownerOf(tokenId) == _msgSender() || isApprovedForAll(from, _msgSender()) || getApproved(tokenId) == _msgSender(), "ERC721: Unauthorized");
+    function transferFrom(address from, address to, uint256 tokenId) public override nonReentrant {
+        require(
+            _ownerOf(tokenId) == _msgSender() || isApprovedForAll(from, _msgSender())
+                || getApproved(tokenId) == _msgSender(),
+            "ERC721: Unauthorized"
+        );
 
         // Update registry
         bytes32 nameHash = tokenIdToNameHash[tokenId];
+        require(!frozenToken[tokenId], "NFT: Token frozen");
         if (nameHash != bytes32(0) && registry.exists(nameHash)) {
             // Transfer in registry would need to be called separately
             // Or we could emit an event here for off-chain listeners
@@ -139,13 +180,17 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
     /**
      * @dev Overrides safeTransferFrom
      */
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId,
-        bytes memory data
-    ) public override nonReentrant {
-        require(_ownerOf(tokenId) == _msgSender() || isApprovedForAll(from, _msgSender()) || getApproved(tokenId) == _msgSender(), "ERC721: Unauthorized");
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data)
+        public
+        override
+        nonReentrant
+    {
+        require(
+            _ownerOf(tokenId) == _msgSender() || isApprovedForAll(from, _msgSender())
+                || getApproved(tokenId) == _msgSender(),
+            "ERC721: Unauthorized"
+        );
+        require(!frozenToken[tokenId], "NFT: Token frozen");
         super.safeTransferFrom(from, to, tokenId, data);
     }
 
@@ -192,12 +237,7 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
      * @dev Returns URI for a token
      * @param tokenId Token ID
      */
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        override
-        returns (string memory)
-    {
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(ownerOf(tokenId) != address(0), "NFT: Token does not exist");
         return string(abi.encodePacked(baseURI, _toString(tokenId)));
     }
@@ -230,12 +270,7 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
     /**
      * @dev Returns whether the contract supports an interface
      */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override
-        returns (bool)
-    {
+    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 }

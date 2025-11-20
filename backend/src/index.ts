@@ -4,8 +4,11 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import { Config } from './config';
 import pnsRoutes from './routes/pns.routes';
+import recordRoutes from './routes/records.routes';
+import nftRoutes from './routes/nft.routes';
 import logger from './utils/logger';
 import { ApiResponse } from './types';
+import { SyncService } from './services/sync.service';
 
 // Initialize Express app
 const app: Application = express();
@@ -44,6 +47,8 @@ app.use('/api/', limiter);
 
 // Routes
 app.use('/api', pnsRoutes);
+app.use('/api/records', recordRoutes);
+app.use('/api/nft', nftRoutes);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
@@ -114,6 +119,9 @@ app.listen(PORT, () => {
   console.log(`📡 Solana RPC: ${Config.solana.rpcUrl}`);
   console.log(`📚 API Docs: http://localhost:${PORT}/`);
 });
+
+const syncService = new SyncService();
+syncService.start();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
