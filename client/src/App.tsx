@@ -9,7 +9,9 @@ import { clusterApiUrl } from "@solana/web3.js";
 import "./App.css";
 import Home from "./pages/Home";
 import { injected } from "wagmi/connectors";
-
+import { Routes,BrowserRouter as Router, Route } from "react-router-dom";
+import Search from "./pages/Search";
+import Profile from "./pages/Profile";
 // Wagmi config for Polygon
 const wagmiConfig = createConfig({
   chains: [polygon],
@@ -33,7 +35,13 @@ function App() {
         <ConnectionProvider endpoint={endpoint}>
           <WalletProvider wallets={wallets} autoConnect>
             <WalletModalProvider>
-              <Home />
+              <Router>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/search" element={<Search />} />
+                  <Route path="/profile" element={<Profile />} />
+                </Routes>
+              </Router>
             </WalletModalProvider>
           </WalletProvider>
         </ConnectionProvider>

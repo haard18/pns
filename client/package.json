@@ -20,6 +20,7 @@
     "framer-motion": "^12.23.24",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.6",
     "tailwindcss": "^4.1.17",
     "viem": "^2.39.0",
     "wagmi": "^2.19.4"
