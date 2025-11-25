@@ -12,6 +12,9 @@ import { injected } from "wagmi/connectors";
 import { Routes,BrowserRouter as Router, Route } from "react-router-dom";
 import Search from "./pages/Search";
 import Profile from "./pages/Profile";
+import RegisterDomain from "./pages/RegisterDomain";
+import Domain from "./pages/Domain";
+import ManageDomain from "./pages/ManageDomain";
 // Wagmi config for Polygon
 const wagmiConfig = createConfig({
   chains: [polygon],
@@ -40,6 +43,9 @@ function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/search" element={<Search />} />
                   <Route path="/profile" element={<Profile />} />
+                  <Route path="/register" element={<RegisterDomain />} />
+                  <Route path="/domains" element={<Domain />} />
+                  <Route path="/manage/:domainName" element={<ManageDomain />} />
                 </Routes>
               </Router>
             </WalletModalProvider>
