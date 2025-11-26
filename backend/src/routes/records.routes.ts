@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import Joi from 'joi';
 import { RecordService } from '../services/record.service';
 import logger from '../utils/logger';
-import { ApiResponse, RecordDeleteRequest, RecordWriteRequest } from '../types';
+import { ApiResponse, RecordDeleteRequest, RecordWriteRequest, ChainType } from '../types';
 
 const router = Router();
 const recordService = new RecordService();
@@ -51,19 +51,11 @@ router.post('/', async (req: Request, res: Response): Promise<Response | void> =
 
 router.delete('/:chain/:name/:recordType/:key', async (req: Request, res: Response): Promise<Response | void> => {
   try {
-    const { chain, name, recordType, key } = req.params;
+    const { name, recordType, key } = req.params;
     const customKeyHash = req.query.customKeyHash as string | undefined;
 
-    if (!['polygon', 'solana'].includes(chain)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid chain parameter',
-        timestamp: Date.now()
-      } satisfies ApiResponse);
-    }
-
     const request: RecordDeleteRequest = {
-      chain: chain as 'polygon' | 'solana',
+      chain: 'polygon' as ChainType,
       name,
       recordType: recordType as any,
       key,

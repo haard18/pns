@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { PolygonConfig, SolanaConfig } from '../types';
+import { PolygonConfig } from '../types';
 
 dotenv.config();
 
@@ -20,11 +20,12 @@ export class Config {
     }
   };
 
-  static readonly solana: SolanaConfig = {
-    rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com',
-    programId: process.env.SOLANA_PROGRAM_ID || '',
-    payerKeypair: process.env.SOLANA_PAYER_KEYPAIR || ''
-  };
+  // Solana config commented out - can be re-enabled later if needed
+  // static readonly solana: SolanaConfig = {
+  //   rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com',
+  //   programId: process.env.SOLANA_PROGRAM_ID || '',
+  //   payerKeypair: process.env.SOLANA_PAYER_KEYPAIR || ''
+  // };
 
   static readonly database = {
     url: process.env.DATABASE_URL || 'postgresql://localhost:5432/pns'
@@ -43,8 +44,7 @@ export class Config {
   static validate(): void {
     const required = [
       'POLYGON_RPC_URL',
-      'POLYGON_CONTROLLER_ADDRESS',
-      'SOLANA_RPC_URL'
+      'POLYGON_CONTROLLER_ADDRESS'
     ];
 
     const missing = required.filter(key => !process.env[key]);

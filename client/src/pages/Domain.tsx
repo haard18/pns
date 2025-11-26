@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
+import { useWallet } from "../contexts/WalletContext";
+import { useDomain } from "../hooks/useDomain";
 
 interface DomainItem {
   name: string;
@@ -9,23 +11,30 @@ interface DomainItem {
 
 const Domain = () => {
   const navigate = useNavigate();
+  const { address } = useWallet();
+  const { getUserDomains } = useDomain();
+  
   const [activeTab, setActiveTab] = useState<"collections" | "cart" | "registrar">("collections");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [searchQuery, setSearchQuery] = useState("");
+  const [collections, setCollections] = useState<DomainItem[]>([]);
 
-  const collections: DomainItem[] = [
-    { name: "alex.poly" },
-    { name: "dylan.poly" },
-    { name: "mila.poly" },
-    { name: "victor.poly" },
-  ];
+  useEffect(() => {
+    const loadDomains = async () => {
+      if (address) {
+        const domains = await getUserDomains(address);
+        setCollections(domains.map(d => ({ name: d.name })));
+      }
+    };
+    loadDomains();
+  }, [address, getUserDomains]);
 
   const filteredCollections = collections.filter((domain) =>
     domain.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const stats = [
-    { label: "Total domains", value: "0" },
+    { label: "Total domains", value: collections.length.toString() },
     { label: "Portfolio value", value: "$0.00" },
     { label: "Domains bought", value: "0" },
     { label: "Domains sold", value: "0" },
@@ -46,7 +55,7 @@ const Domain = () => {
         >
           <h1 className="text-4xl text-white font-bold mb-2">Your Domains</h1>
           <div className="flex items-center gap-2 text-[var(--text-soft)]">
-            <span>HAbMx...w92sz</span>
+            <span>{address ? `${address.slice(0, 8)}...${address.slice(-4)}` : 'Connect wallet'}</span>
             <button className="w-4 h-4 flex items-center justify-center">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

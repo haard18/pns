@@ -28,11 +28,10 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
     /// @notice Base URI for metadata
     string public baseURI;
 
-    /// @notice Tracks which chain currently hosts the active wrapper
+    /// @notice Tracks which chain currently hosts the active wrapper (currently Polygon only)
     enum MintChain {
         None,
-        Polygon,
-        Solana
+        Polygon
     }
 
     mapping(bytes32 => MintChain) public mintChainByNameHash;
@@ -80,10 +79,10 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Marks a domain as wrapped on Solana to prevent Polygon mint
+     * @dev Marks a domain as wrapped - currently only Polygon wrapping is supported
      */
     function markExternalWrap(bytes32 nameHash, MintChain chain) external onlyOwner {
-        require(chain == MintChain.Solana, "NFT: only Solana external wraps");
+        require(chain == MintChain.Polygon, "NFT: Polygon wrapping is the only supported option");
         require(mintChainByNameHash[nameHash] != MintChain.Polygon, "NFT: Polygon token exists");
         mintChainByNameHash[nameHash] = chain;
         emit WrapStateChanged(nameHash, chain);
@@ -103,7 +102,7 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
         require(nameHashToTokenId[nameHash] == 0, "NFT: Domain already minted");
         require(
             mintChainByNameHash[nameHash] == MintChain.None || mintChainByNameHash[nameHash] == MintChain.Polygon,
-            "NFT: Wrapped on Solana"
+            "NFT: Domain already wrapped"
         );
 
         uint256 tokenId = _tokenIdCounter;

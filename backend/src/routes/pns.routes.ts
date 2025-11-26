@@ -15,7 +15,7 @@ const pnsService = new PNSService();
 
 // Validation schemas
 const registerSchema = Joi.object({
-  chain: Joi.string().valid('polygon', 'solana').required(),
+  chain: Joi.string().valid('polygon').required(),
   name: Joi.string().min(3).max(63).required(),
   owner: Joi.string().required(),
   duration: Joi.number().integer().min(1).required(),
@@ -23,7 +23,7 @@ const registerSchema = Joi.object({
 });
 
 const renewSchema = Joi.object({
-  chain: Joi.string().valid('polygon', 'solana').required(),
+  chain: Joi.string().valid('polygon').required(),
   name: Joi.string().min(3).max(63).required(),
   duration: Joi.number().integer().min(1).required()
 });
@@ -110,7 +110,7 @@ router.post('/renew', async (req: Request, res: Response): Promise<any> => {
 router.get('/price', async (req: Request, res: Response): Promise<any> => {
   try {
     const querySchema = Joi.object({
-      chain: Joi.string().valid('polygon', 'solana').required(),
+      chain: Joi.string().valid('polygon').required(),
       name: Joi.string().min(3).max(63).required(),
       duration: Joi.number().integer().min(1).optional().default(365 * 24 * 60 * 60)
     });
@@ -155,16 +155,16 @@ router.get('/domains/:address', async (req: Request, res: Response): Promise<any
     const { address } = req.params;
     const chain = req.query.chain as ChainType | undefined;
 
-    if (chain && !['polygon', 'solana'].includes(chain)) {
+    if (chain && chain !== 'polygon') {
       const response: ApiResponse = {
         success: false,
-        error: 'Invalid chain parameter',
+        error: 'Invalid chain parameter. Only polygon is supported.',
         timestamp: Date.now()
       };
       return res.status(400).json(response);
     }
 
-    const domains = await pnsService.getDomainsByOwner(address, chain);
+    const domains = await pnsService.getDomainsByOwner(address);
 
     const response: ApiResponse = {
       success: true,
@@ -192,16 +192,16 @@ router.get('/domain/:name', async (req: Request, res: Response): Promise<any> =>
     const { name } = req.params;
     const chain = req.query.chain as ChainType;
 
-    if (!chain || !['polygon', 'solana'].includes(chain)) {
+    if (!chain || chain !== 'polygon') {
       const response: ApiResponse = {
         success: false,
-        error: 'Chain parameter is required (polygon or solana)',
+        error: 'Chain parameter is required and must be polygon',
         timestamp: Date.now()
       };
       return res.status(400).json(response);
     }
 
-    const domain = await pnsService.getDomain(name, chain);
+    const domain = await pnsService.getDomain(name);
 
     if (!domain) {
       const response: ApiResponse = {
@@ -238,10 +238,10 @@ router.get('/available/:name', async (req: Request, res: Response): Promise<any>
     const { name } = req.params;
     const chain = req.query.chain as ChainType;
 
-    if (chain && !['polygon', 'solana'].includes(chain)) {
+    if (chain && chain !== 'polygon') {
       const response: ApiResponse = {
         success: false,
-        error: 'Invalid chain parameter',
+        error: 'Invalid chain parameter. Only polygon is supported.',
         timestamp: Date.now()
       };
       return res.status(400).json(response);
@@ -249,9 +249,9 @@ router.get('/available/:name', async (req: Request, res: Response): Promise<any>
 
     let available;
     if (chain) {
-      available = await pnsService.isAvailable(name, chain);
+      available = await pnsService.isAvailable(name);
     } else {
-      available = await pnsService.checkAvailabilityBothChains(name);
+      available = await pnsService.isAvailable(name);
     }
 
     const response: ApiResponse = {

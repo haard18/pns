@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useState } from "react";
 import Navbar from "../components/Navbar";
 import "../App.css";
 import bars from "../assets/bars.png";
@@ -31,6 +32,13 @@ const scaleIn = {
 };
 
 const Home = () => {
+  const [searchInput, setSearchInput] = useState("");
+
+  const handleSearch = () => {
+    if (searchInput.trim()) {
+      window.location.href = `/search?query=${encodeURIComponent(searchInput)}`;
+    }
+  };
   return (
     <>
       {/* HERO SECTION */}
@@ -69,6 +77,9 @@ const Home = () => {
           >
             <input
               type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
               placeholder="Search or register a .poly domain"
               className="flex-1 px-4 py-3 bg-transparent text-(--text-light) placeholder-white/50 outline-none"
             />
@@ -85,6 +96,7 @@ const Home = () => {
 
               {/* Button */}
               <motion.button 
+                onClick={handleSearch}
                 className="relative px-6 py-3 border border-[#2349E2] transition text-white font-medium"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}

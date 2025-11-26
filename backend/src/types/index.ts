@@ -1,8 +1,8 @@
-export type ChainType = 'polygon' | 'solana';
+export type ChainType = 'polygon';
 
 export type RecordType = 'address' | 'text' | 'contentHash' | 'custom';
 
-export type WrapState = 'none' | 'polygon' | 'solana';
+export type WrapState = 'none' | 'polygon';
 
 export interface DomainRecord {
   name: string;
@@ -40,10 +40,9 @@ export interface PriceRequest {
 
 export interface PriceResponse {
   price: string;
-  currency: 'ETH' | 'SOL';
+  currency: 'ETH';
   chain: ChainType;
   priceWei?: string;
-  priceLamports?: string;
 }
 
 export interface PolygonConfig {
@@ -59,11 +58,12 @@ export interface PolygonConfig {
   };
 }
 
-export interface SolanaConfig {
-  rpcUrl: string;
-  programId: string;
-  payerKeypair: string;
-}
+// Solana config commented out - can be re-enabled later if needed
+// export interface SolanaConfig {
+//   rpcUrl: string;
+//   programId: string;
+//   payerKeypair: string;
+// }
 
 export interface RegistryAccountData {
   authority: string;
@@ -78,10 +78,11 @@ export interface ApiResponse<T = any> {
   timestamp: number;
 }
 
-export interface SolanaDomainPDA {
-  address: string;
-  bump: number;
-}
+// Solana domain PDA - commented out for future use
+// export interface SolanaDomainPDA {
+//   address: string;
+//   bump: number;
+// }
 
 export interface DomainMapping {
   nameHash: string;

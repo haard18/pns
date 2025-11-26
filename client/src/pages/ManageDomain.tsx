@@ -1,12 +1,29 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
+import { useDomain } from "../hooks/useDomain";
+import { useWallet } from "../contexts/WalletContext";
 
 const ManageDomain = () => {
   const { domainName } = useParams<{ domainName: string }>();
   const navigate = useNavigate();
+  const { renew, getDomainDetails, isLoading } = useDomain();
+  const { address } = useWallet();
+  
   const [activeTab, setActiveTab] = useState<"records" | "subdomains" | "permissions">("records");
+  const [domainDetails, setDomainDetails] = useState<any | null>(null);
+  const [renewing, setRenewing] = useState(false);
+
+  useEffect(() => {
+    const loadDomain = async () => {
+      if (domainName) {
+        const details = await getDomainDetails(domainName);
+        setDomainDetails(details);
+      }
+    };
+    loadDomain();
+  }, [domainName, getDomainDetails]);
 
   // Sample data - replace with actual API calls
   const [records, setRecords] = useState([
@@ -31,6 +48,21 @@ const ManageDomain = () => {
     setRecords(records.filter((_, i) => i !== index));
   };
 
+  const handleRenewDomain = async () => {
+    if (!domainName || !address) return;
+    setRenewing(true);
+    try {
+      await renew(domainName, 1); // Renew for 1 year
+      alert("Domain renewed successfully!");
+      const details = await getDomainDetails(domainName);
+      setDomainDetails(details);
+    } catch (err) {
+      console.error("Renewal failed:", err);
+    } finally {
+      setRenewing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen overflow-hidden" style={{ background: "var(--primary-gradient)" }}>
       <Navbar />
@@ -53,9 +85,9 @@ const ManageDomain = () => {
           </button>
           <h1 className="text-4xl text-white font-bold mb-2">{domainName}</h1>
           <div className="flex items-center gap-4 text-[var(--text-soft)]">
-            <span>Owner: HAbMx...w92sz</span>
+            <span>Owner: {address ? `${address.slice(0, 8)}...${address.slice(-4)}` : 'Unknown'}</span>
             <span>•</span>
-            <span>Expires: Dec 25, 2026</span>
+            <span>Expires: {domainDetails?.expirationDate || 'Dec 25, 2026'}</span>
           </div>
         </motion.div>
 
@@ -66,8 +98,12 @@ const ManageDomain = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <button className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-6 hover:border-[#2349E2] transition text-left group">
-            <div className="text-white text-lg font-semibold mb-2 group-hover:text-[#2349E2] transition">Renew Domain</div>
+          <button 
+            onClick={handleRenewDomain}
+            disabled={renewing}
+            className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-6 hover:border-[#2349E2] transition text-left group disabled:opacity-50"
+          >
+            <div className="text-white text-lg font-semibold mb-2 group-hover:text-[#2349E2] transition">{renewing ? 'Renewing...' : 'Renew Domain'}</div>
             <div className="text-[var(--text-soft)] text-sm">Extend your domain ownership</div>
           </button>
           <button className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-6 hover:border-[#2349E2] transition text-left group">

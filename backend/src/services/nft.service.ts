@@ -1,5 +1,4 @@
 import { PolygonService } from './polygon.service';
-import { SolanaService } from './solana.service';
 import { MappingService } from './mapping.service';
 import { NFTMetadata, NFTWrapRequest, WrapState } from '../types';
 import { getFullDomainName, namehash } from '../utils/namehash';
@@ -8,28 +7,16 @@ import logger from '../utils/logger';
 export class NFTService {
   constructor(
     private polygonService = new PolygonService(),
-    private solanaService = new SolanaService(),
     private mappingService = MappingService.getInstance()
   ) {}
 
   async wrapDomain(request: NFTWrapRequest): Promise<{ txHash: string; chain: WrapState }> {
-    const targetState: WrapState = request.targetChain === 'polygon' ? 'polygon' : 'solana';
+    const targetState: WrapState = 'polygon';
     let txHash = '';
 
-    if (request.targetChain === 'polygon') {
-      txHash = await this.polygonService.wrapDomainAsPolygonNFT(request.name, request.owner);
-      await this.polygonService.markWrapState(request.name, 'polygon');
-      await this.solanaService.setWrapState({
-        name: request.name,
-        wrapState: 'polygon'
-      });
-    } else {
-      txHash = await this.solanaService.setWrapState({
-        name: request.name,
-        wrapState: 'solana'
-      });
-      await this.polygonService.markWrapState(request.name, 'solana');
-    }
+    // Polygon is the only supported chain
+    txHash = await this.polygonService.wrapDomainAsPolygonNFT(request.name, request.owner);
+    await this.polygonService.markWrapState(request.name, 'polygon');
 
     const fullName = getFullDomainName(request.name);
     await this.mappingService.upsertDomain({
@@ -52,15 +39,8 @@ export class NFTService {
 
   async unwrapDomain(request: NFTWrapRequest): Promise<{ txHash: string }> {
     let txHash = '';
-    if (request.fromChain === 'polygon') {
-      // Burn on Polygon side (handled by admin)
-      txHash = await this.polygonService.markWrapState(request.name, 'none');
-    } else {
-      txHash = await this.solanaService.setWrapState({
-        name: request.name,
-        wrapState: 'none'
-      });
-    }
+    // Polygon is the only supported chain
+    txHash = await this.polygonService.markWrapState(request.name, 'none');
 
     await this.mappingService.upsertDomain({
       nameHash: namehash(getFullDomainName(request.name)),

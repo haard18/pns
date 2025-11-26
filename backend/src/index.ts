@@ -57,7 +57,7 @@ app.get('/', (_req: Request, res: Response) => {
     data: {
       name: 'PNS Multi-Chain API',
       version: '1.0.0',
-      chains: ['polygon', 'solana'],
+      chains: ['polygon'],
       endpoints: {
         register: 'POST /api/register',
         renew: 'POST /api/renew',
@@ -110,13 +110,11 @@ app.listen(PORT, () => {
   logger.info(`PNS Multi-Chain API server started`, {
     port: PORT,
     env: process.env.NODE_ENV || 'development',
-    polygonRpc: Config.polygon.rpcUrl,
-    solanaRpc: Config.solana.rpcUrl
+    polygonRpc: Config.polygon.rpcUrl
   });
   
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📡 Polygon RPC: ${Config.polygon.rpcUrl}`);
-  console.log(`📡 Solana RPC: ${Config.solana.rpcUrl}`);
   console.log(`📚 API Docs: http://localhost:${PORT}/`);
 });
 

@@ -1,6 +1,9 @@
 // DomainProfile.jsx
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useWallet } from "../contexts/WalletContext";
+import { useDomain } from "../hooks/useDomain";
+import Navbar from "../components/Navbar";
 
 /**
  * Uses the uploaded image at:
@@ -35,11 +38,11 @@ const sidebarItems = [
     content: (
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-sm bg-gradient-to-br from-[#00D1FF] to-[#7B61FF] flex items-center justify-center text-white">
-          S
+          P
         </div>
         <div>
-          <div className="text-sm">Solana (Deposit Address)</div>
-          <div className="text-xs text-[var(--text-soft)]">HAbMx...w92sz</div>
+          <div className="text-sm">Polygon (Deposit Address)</div>
+          <div className="text-xs text-[var(--text-soft)]">0xAbMx...w92sz</div>
         </div>
       </div>
     ),
@@ -88,11 +91,30 @@ const scaleIn = {
 };
 
 export default function DomainProfile() {
+  const { address } = useWallet();
+  const { getUserDomains, renew, isLoading } = useDomain();
+  
   const [activeTab, setActiveTab] = useState("Domain Settings");
   const [showSocialsModal, setShowSocialsModal] = useState(false);
   const [showAddressesModal, setShowAddressesModal] = useState(false);
   const [showOtherRecordsModal, setShowOtherRecordsModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [userDomains, setUserDomains] = useState<any[]>([]);
+  const [selectedDomain, setSelectedDomain] = useState<any | null>(null);
+
+  useEffect(() => {
+    const loadDomains = async () => {
+      if (address) {
+        const domains = await getUserDomains(address);
+        setUserDomains(domains);
+        if (domains.length > 0) {
+          setSelectedDomain(domains[0]);
+        }
+      }
+    };
+    loadDomains();
+  }, [address, getUserDomains]);
+
   const [socials, setSocials] = useState({
     website: "",
     twitter: "",
@@ -101,7 +123,7 @@ export default function DomainProfile() {
     email: "",
     github: "",
   });
-  const [solanaAddress, setSolanaAddress] = useState("");
+  const [polygonAddress, setPolygonAddress] = useState("");
   const [otherRecords, setOtherRecords] = useState({
     ipfs: "",
     arwv: "",
@@ -131,7 +153,7 @@ export default function DomainProfile() {
 
   const handleVerifyAddress = () => {
     // Verify address logic here
-    console.log("Verifying address:", solanaAddress);
+    console.log("Verifying address:", polygonAddress);
   };
 
   const handleOtherRecordChange = (field: string, value: string) => {
@@ -166,16 +188,17 @@ export default function DomainProfile() {
       variants={{ initial: { opacity: 0 }, animate: { opacity: 1, transition: { duration: 0.5 } } }}
       style={{ background: "var(--primary-gradient)" }}
     >
+      <Navbar />
       {/* Header */}
       <motion.header className="mb-6" >
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <button className="text-2xl font-medium">◀ Back</button>
             <div className="flex items-center gap-4 px-4 py-3 rounded border border-[rgba(255,255,255,0.06)]">
-              <div className="w-14 h-14 bg-[#2E56FF] rounded-md flex items-center justify-center text-2xl font-bold">A</div>
+              <div className="w-14 h-14 bg-[#2E56FF] rounded-md flex items-center justify-center text-2xl font-bold">{selectedDomain?.name?.[0]?.toUpperCase() || 'A'}</div>
               <div>
-                <div className="text-2xl font-semibold">alex.poly</div>
-                <div className="text-sm text-[var(--text-soft)]">Owned By: HAbMx...w92sz ⧉</div>
+                <div className="text-2xl font-semibold">{selectedDomain?.name || 'Loading...'}</div>
+                <div className="text-sm text-[var(--text-soft)]">Owned By: {address?.slice(0, 8)}...{address?.slice(-4)} ⧉</div>
               </div>
             </div>
           </div>
@@ -497,9 +520,9 @@ export default function DomainProfile() {
                 <div className="flex gap-3">
                   <input
                     type="text"
-                    placeholder="Input a new Solana Address"
-                    value={solanaAddress}
-                    onChange={(e) => setSolanaAddress(e.target.value)}
+                    placeholder="Input a new Polygon Address"
+                    value={polygonAddress}
+                    onChange={(e) => setPolygonAddress(e.target.value)}
                     className="flex-1 bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-3 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                   />
                   <button

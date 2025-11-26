@@ -1,31 +1,73 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import logo from "../assets/Logo.png";
 import { x, tg, discord } from "../assets/footer";
+import { useDomain } from "../hooks/useDomain";
+import { useWallet } from "../contexts/WalletContext";
+import { formatNumber } from "../services/pnsApi";
 
 const RegisterDomain = () => {
-    const [paymentMethod, setPaymentMethod] = useState<"SOL" | "USDC" | "Other">("SOL");
+    const { address } = useWallet();
+    const { register, isLoading, error } = useDomain();
+    
+    const [paymentMethod, setPaymentMethod] = useState<"ETH" | "USDC" | "Other">("ETH");
     const [discountCode, setDiscountCode] = useState("");
-    const [years, setYears] = useState(2);
-    const [selectedDomains, setSelectedDomains] = useState([
-        { name: "alex.poly", price: 0.1446, isChecked: true },
-        { name: "dylan.poly", price: 0.1453, isChecked: false }
-    ]);
+    const [years, setYears] = useState(1);
+    const [selectedDomains, setSelectedDomains] = useState<{name: string; price: string; isChecked: boolean}[]>([]);
+    const [registering, setRegistering] = useState(false);
+
+    // Get domain from URL params
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const domain = params.get("domain");
+        if (domain && selectedDomains.length === 0) {
+            setSelectedDomains([
+                { name: domain, price: "0.1", isChecked: true }
+            ]);
+        }
+    }, []);
 
     // Calculate totals
     const subtotal = selectedDomains
         .filter(d => d.isChecked)
-        .reduce((sum, d) => sum + d.price, 0);
-    const rent = 0.0032;
+        .reduce((sum, d) => sum + parseFloat(d.price), 0);
+    const rent = selectedDomains.filter(d => d.isChecked).length * 0.001;
     const total = subtotal + rent + (years * 0.005);
 
-    const usdValue = (total * 20).toFixed(2); // Assuming 1 SOL = ~$20 for demo
+    const usdValue = (total * 2000).toFixed(2); // Assuming 1 ETH = ~$2000
 
     const toggleDomain = (index: number) => {
         const updated = [...selectedDomains];
         updated[index].isChecked = !updated[index].isChecked;
         setSelectedDomains(updated);
+    };
+
+    const handleRegister = async () => {
+        if (!address) {
+            alert("Please connect your wallet first");
+            return;
+        }
+
+        if (selectedDomains.filter(d => d.isChecked).length === 0) {
+            alert("Please select at least one domain");
+            return;
+        }
+
+        setRegistering(true);
+        try {
+            for (const domain of selectedDomains) {
+                if (domain.isChecked) {
+                    await register(domain.name, address, years);
+                }
+            }
+            alert("Domain(s) registered successfully!");
+            window.location.href = "/profile";
+        } catch (err) {
+            console.error("Registration failed:", err);
+        } finally {
+            setRegistering(false);
+        }
     };
 
     return (
@@ -66,13 +108,13 @@ const RegisterDomain = () => {
 
                             <div className="flex gap-3 mb-4">
                                 <button
-                                    onClick={() => setPaymentMethod("SOL")}
-                                    className={`px-6 py-2 border ${paymentMethod === "SOL"
+                                    onClick={() => setPaymentMethod("ETH")}
+                                    className={`px-6 py-2 border ${paymentMethod === "ETH"
                                         ? "border-[#2349E2] bg-[#2349E2]/20 text-white"
                                         : "border-white/20 text-white/60"
                                         } rounded flex items-center gap-2`}
                                 >
-                                    <span className="text-purple-400">◎</span> SOL
+                                    <span className="text-purple-400">◎</span> ETH
                                 </button>
 
                                 <button
@@ -131,8 +173,8 @@ const RegisterDomain = () => {
                                         </div>
 
                                         <div className="text-right">
-                                            <p className="text-white text-sm">{domain.price.toFixed(4)} SOL</p>
-                                            <p className="text-white/40 text-xs">~${(domain.price * 20).toFixed(2)} USDC</p>
+                                            <p className="text-white text-sm">{domain.price} ETH</p>
+                                            <p className="text-white/40 text-xs">~${(parseFloat(domain.price) * 2000).toFixed(2)} USDC</p>
                                         </div>
 
                                         <div className="flex justify-end">
@@ -183,15 +225,15 @@ const RegisterDomain = () => {
                             <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
                                 <span className="text-white/60">Subtotal</span>
                                 <div className="text-right">
-                                    <p className="text-white">{subtotal.toFixed(4)} SOL</p>
-                                    <p className="text-white/40 text-xs">~${(subtotal * 20).toFixed(2)} USDC</p>
+                                    <p className="text-white">{subtotal.toFixed(4)} ETH</p>
+                                    <p className="text-white/40 text-xs">~${(subtotal * 2000).toFixed(2)} USDC</p>
                                 </div>
                             </div>
 
                             {/* Rent */}
                             <div className="flex justify-between items-center mb-4">
                                 <span className="text-white/60">Rent</span>
-                                <p className="text-white">{rent.toFixed(4)} SOL</p>
+                                <p className="text-white">{rent.toFixed(4)} ETH</p>
                             </div>
 
                             {/* Years Selector */}
@@ -206,12 +248,12 @@ const RegisterDomain = () => {
                                     </button>
                                     <span className="text-white w-8 text-center">{years}</span>
                                     <button
-                                        onClick={() => setYears(Math.min(5, years + 1))}
+                                        onClick={() => setYears(Math.min(10, years + 1))}
                                         className="w-8 h-8 bg-[#2349E2] text-white rounded flex items-center justify-center hover:bg-[#2349E2]/80"
                                     >
                                         +
                                     </button>
-                                    <span className="text-white ml-2">{(years * 0.005).toFixed(4)} SOL</span>
+                                    <span className="text-white ml-2">{(years * 0.005).toFixed(4)} ETH</span>
                                 </div>
                             </div>
 
@@ -219,14 +261,18 @@ const RegisterDomain = () => {
                             <div className="flex justify-between items-center pt-4 border-t border-white/10 mb-6">
                                 <span className="text-white font-semibold">Total</span>
                                 <div className="text-right">
-                                    <p className="text-white font-semibold">{total.toFixed(4)} SOL</p>
+                                    <p className="text-white font-semibold">{total.toFixed(4)} ETH</p>
                                     <p className="text-white/40 text-xs">~${usdValue} USDC</p>
                                 </div>
                             </div>
 
                             {/* Confirm Button */}
-                            <button className="w-full bg-[#2349E2] hover:bg-[#2349E2]/80 text-white font-medium py-3 rounded transition">
-                                Confirm
+                            <button 
+                                onClick={handleRegister}
+                                disabled={registering || !address}
+                                className="w-full bg-[#2349E2] hover:bg-[#2349E2]/80 disabled:opacity-50 text-white font-medium py-3 rounded transition"
+                            >
+                                {registering ? "Registering..." : !address ? "Connect Wallet" : "Confirm"}
                             </button>
                         </div>
 

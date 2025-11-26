@@ -346,7 +346,7 @@ export class PolygonService {
     const nameHash = this.getNameHash(name);
     const wallet = this.getWallet(privateKey);
     const registry = this.registry.connect(wallet) as Contract;
-    const wrapValue = state === 'polygon' ? 1 : state === 'solana' ? 2 : 0;
+    const wrapValue = state === 'polygon' ? 1 : 0;
     const tx = await registry.setWrapState(nameHash, wrapValue);
     const receipt = await tx.wait();
     return receipt.hash;
@@ -371,7 +371,7 @@ export class PolygonService {
   }> {
     const nameHash = this.getNameHash(name);
     const mirror = await this.registry.mirrorData(nameHash);
-    const wrapState = mirror.wrapState === 1 ? 'polygon' : mirror.wrapState === 2 ? 'solana' : 'none';
+    const wrapState = mirror.wrapState === 1 ? 'polygon' : 'none';
     return {
       solanaPda: ethers.hexlify(mirror.solanaPda),
       lastSlot: Number(mirror.lastSyncedSlot),

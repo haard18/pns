@@ -1,6 +1,5 @@
 import { ethers } from 'ethers';
 import { PolygonService } from './polygon.service';
-import { SolanaService } from './solana.service';
 import { MappingService } from './mapping.service';
 import {
   PersistedRecord,
@@ -12,21 +11,11 @@ import {
 import { getFullDomainName, namehash } from '../utils/namehash';
 import logger from '../utils/logger';
 
-const encoder = new TextEncoder();
-
 export class RecordService {
   constructor(
     private polygonService = new PolygonService(),
-    private solanaService = new SolanaService(),
     private mappingService = MappingService.getInstance()
   ) {}
-
-  private encodeValue(recordType: RecordType, value: string): Uint8Array {
-    if (recordType === 'contentHash' || value.startsWith('0x')) {
-      return ethers.getBytes(value);
-    }
-    return encoder.encode(value);
-  }
 
   private keyHash(recordType: RecordType, key: string, customKeyHash?: string): string {
     if (recordType === 'custom') {
@@ -71,69 +60,28 @@ export class RecordService {
     const keyHash = this.keyHash(request.recordType, request.key, request.customKeyHash);
     let txHash = '';
 
-    if (request.chain === 'polygon') {
-      if (request.recordType === 'text') {
-        txHash = await this.polygonService.setTextRecord(request.name, request.key, request.value);
-      } else if (request.recordType === 'address') {
-        const coinType = request.coinType ?? 966;
-        txHash = await this.polygonService.setAddressRecord(
-          request.name,
-          coinType,
-          request.value
-        );
-      } else if (request.recordType === 'contentHash') {
-        txHash = await this.polygonService.setContentHashRecord(request.name, request.value);
-      } else {
-        txHash = await this.polygonService.setCustomRecord(request.name, keyHash, request.value);
-      }
-
-      if (request.propagate !== false) {
-        const valueBytes = this.encodeValue(request.recordType, request.value);
-        await this.solanaService.upsertRecord({
-          name: request.name,
-          recordType: request.recordType,
-          key: request.recordType === 'address'
-            ? (request.coinType ?? 966).toString()
-            : request.key,
-          value: valueBytes,
-          sourceChain: 'polygon',
-          version
-        });
-      }
+    // Polygon is the only supported chain
+    if (request.recordType === 'text') {
+      txHash = await this.polygonService.setTextRecord(request.name, request.key, request.value);
+    } else if (request.recordType === 'address') {
+      const coinType = request.coinType ?? 966;
+      txHash = await this.polygonService.setAddressRecord(
+        request.name,
+        coinType,
+        request.value
+      );
+    } else if (request.recordType === 'contentHash') {
+      txHash = await this.polygonService.setContentHashRecord(request.name, request.value);
     } else {
-      const valueBytes = this.encodeValue(request.recordType, request.value);
-      txHash = await this.solanaService.upsertRecord({
-        name: request.name,
-        recordType: request.recordType,
-        key: request.recordType === 'address'
-          ? (request.coinType ?? 966).toString()
-          : request.key,
-        value: valueBytes,
-        sourceChain: 'solana',
-        version
-      });
-
-      if (request.propagate !== false) {
-        if (request.recordType === 'text') {
-          await this.polygonService.setTextRecord(request.name, request.key, request.value);
-        } else if (request.recordType === 'address') {
-          const coinType = request.coinType ?? 966;
-          await this.polygonService.setAddressRecord(request.name, coinType, request.value);
-        } else if (request.recordType === 'contentHash') {
-          await this.polygonService.setContentHashRecord(request.name, request.value);
-        } else {
-          await this.polygonService.setCustomRecord(request.name, keyHash, request.value);
-        }
-      }
+      txHash = await this.polygonService.setCustomRecord(request.name, keyHash, request.value);
     }
 
     const persisted = this.toPersistedRecord(nameHashHex, keyHash, request, version);
     await this.mappingService.upsertRecord(persisted);
 
-    logger.info('Record upserted across chains', {
+    logger.info('Record upserted on Polygon', {
       name: request.name,
-      recordType: request.recordType,
-      chain: request.chain
+      recordType: request.recordType
     });
 
     return {
@@ -147,16 +95,8 @@ export class RecordService {
     const nameHashHex = namehash(fullName);
     const keyHash = this.keyHash(request.recordType, request.key, request.customKeyHash);
 
-    if (request.chain === 'polygon') {
-      await this.polygonService.clearCustomRecord(request.name, keyHash);
-    } else {
-      await this.solanaService.deleteRecord({
-        name: request.name,
-        key: request.key,
-        recordType: request.recordType
-      });
-    }
-
+    // Polygon is the only supported chain
+    await this.polygonService.clearCustomRecord(request.name, keyHash);
     await this.mappingService.deleteRecord(nameHashHex, keyHash);
   }
 

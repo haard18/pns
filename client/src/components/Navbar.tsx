@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 
 import logo from "../assets/Logo.png";
 import walletIcon from "../assets/wallet.svg";
@@ -16,29 +14,20 @@ export default function Navbar() {
   const { connect, connectors } = useConnect();
   const { disconnect: disconnectEvm } = useDisconnect();
 
-  // -------------- Solana --------------
-  const { publicKey, connected: isSolanaConnected, disconnect: disconnectSolana } = useWallet();
-  const { setVisible: openSolanaModal } = useWalletModal();
-
   // Unified state
-  const isConnected = isEvmConnected || isSolanaConnected;
-  const displayAddress = (evmAddress || publicKey?.toString() || "");
-  const chain = isEvmConnected ? "Polygon" : isSolanaConnected ? "Solana" : "";
+  const isConnected = isEvmConnected;
+  const displayAddress = evmAddress || "";
+  const chain = isEvmConnected ? "Polygon" : "";
 
   // -------------- Handlers --------------
-  const handleConnectWallet = async (chain: "polygon" | "solana") => {
-    if (chain === "polygon") {
-      const connector = connectors[0];
-      if (connector) await connect({ connector });
-    } else {
-      openSolanaModal(true); // <-- This opens Phantom/Solflare modal
-    }
+  const handleConnectWallet = async () => {
+    const connector = connectors[0];
+    if (connector) await connect({ connector });
     setShowWalletMenu(false);
   };
 
   const handleDisconnect = () => {
     if (isEvmConnected) disconnectEvm();
-    if (isSolanaConnected) disconnectSolana();
   };
 
   const formatAddress = (addr: string) =>
@@ -107,23 +96,13 @@ export default function Navbar() {
                   Disconnect Wallet
                 </motion.button>
               ) : (
-                <>
-                  <motion.button
-                    onClick={() => handleConnectWallet("polygon")}
-                    className="w-full text-left px-4 py-3 border-b border-[#2349E2]/30 hover:bg-[#2349E2]/20"
-                    whileHover={{ x: 4 }}
-                  >
-                    Connect Polygon
-                  </motion.button>
-
-                  <motion.button
-                    onClick={() => handleConnectWallet("solana")}
-                    className="w-full text-left px-4 py-3 hover:bg-[#2349E2]/20"
-                    whileHover={{ x: 4 }}
-                  >
-                    Connect Solana
-                  </motion.button>
-                </>
+                <motion.button
+                  onClick={handleConnectWallet}
+                  className="w-full text-left px-4 py-3 hover:bg-[#2349E2]/20"
+                  whileHover={{ x: 4 }}
+                >
+                  Connect Polygon
+                </motion.button>
               )}
             </motion.div>
           )}
@@ -185,22 +164,13 @@ export default function Navbar() {
                     Disconnect Wallet
                   </motion.button>
                 ) : (
-                  <>
-                    <motion.button
-                      onClick={() => handleConnectWallet("polygon")}
-                      className="w-full text-left px-4 py-3 border-b text-white border-[#2349E2]/20 hover:bg-[#2349E2]/20"
-                      whileHover={{ x: 4 }}
-                    >
-                      Connect Polygon
-                    </motion.button>
-                    <motion.button
-                      onClick={() => handleConnectWallet("solana")}
-                      className="w-full text-left px-4 py-3 text-white hover:bg-[#2349E2]/20"
-                      whileHover={{ x: 4 }}
-                    >
-                      Connect Solana
-                    </motion.button>
-                  </>
+                  <motion.button
+                    onClick={handleConnectWallet}
+                    className="w-full text-left px-4 py-3 text-white hover:bg-[#2349E2]/20"
+                    whileHover={{ x: 4 }}
+                  >
+                    Connect Polygon
+                  </motion.button>
                 )}
               </motion.div>
             )}
