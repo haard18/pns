@@ -6,6 +6,7 @@ import { Config } from './config';
 import pnsRoutes from './routes/pns.routes';
 import recordRoutes from './routes/records.routes';
 import nftRoutes from './routes/nft.routes';
+import transactionRoutes from './routes/transaction.routes';
 import logger from './utils/logger';
 import { ApiResponse } from './types';
 import { SyncService } from './services/sync.service';
@@ -49,6 +50,7 @@ app.use('/api/', limiter);
 app.use('/api', pnsRoutes);
 app.use('/api/records', recordRoutes);
 app.use('/api/nft', nftRoutes);
+app.use('/api/transactions', transactionRoutes);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
@@ -70,7 +72,7 @@ app.get('/', (_req: Request, res: Response) => {
     },
     timestamp: Date.now()
   };
-  
+
   res.json(response);
 });
 
@@ -81,21 +83,21 @@ app.use((_req: Request, res: Response) => {
     error: 'Route not found',
     timestamp: Date.now()
   };
-  
+
   res.status(404).json(response);
 });
 
 // Global error handler
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  logger.error('Unhandled error', { 
-    error: err.message, 
-    stack: err.stack 
+  logger.error('Unhandled error', {
+    error: err.message,
+    stack: err.stack
   });
 
   const response: ApiResponse = {
     success: false,
-    error: process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
+    error: process.env.NODE_ENV === 'production'
+      ? 'Internal server error'
       : err.message,
     timestamp: Date.now()
   };
@@ -112,7 +114,7 @@ app.listen(PORT, () => {
     env: process.env.NODE_ENV || 'development',
     polygonRpc: Config.polygon.rpcUrl
   });
-  
+
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📡 Polygon RPC: ${Config.polygon.rpcUrl}`);
   console.log(`📚 API Docs: http://localhost:${PORT}/`);

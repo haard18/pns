@@ -8,7 +8,7 @@ import { useWallet } from "../contexts/WalletContext";
 const ManageDomain = () => {
   const { domainName } = useParams<{ domainName: string }>();
   const navigate = useNavigate();
-  const { renew, getDomainDetails, isLoading } = useDomain();
+  const { renew, getDomainDetails,  } = useDomain();
   const { address } = useWallet();
   
   const [activeTab, setActiveTab] = useState<"records" | "subdomains" | "permissions">("records");

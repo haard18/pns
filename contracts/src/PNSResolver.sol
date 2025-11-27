@@ -85,6 +85,21 @@ contract PNSResolver is AccessControl, Initializable, UUPSUpgradeable, Reentranc
     // ============ Admin Functions ============
 
     /**
+     * @dev Ensures that the caller is authorized to modify records for a given name.
+     *      The name owner is always authorized. Additionally, contracts with
+     *      REGISTRY_ROLE (e.g. the registry itself) are allowed to perform
+     *      system-level updates on behalf of the owner.
+     */
+    modifier onlyAuthorizedForName(bytes32 nameHash) {
+        (address nameOwner,, uint64 expiration) = registry.getNameRecord(nameHash);
+        require(expiration > block.timestamp, "Resolver: Name expired");
+        require(
+            msg.sender == nameOwner || hasRole(REGISTRY_ROLE, msg.sender), "Resolver: Not authorized for name"
+        );
+        _;
+    }
+
+    /**
      * @dev Adds a supported coin type
      * @param coinType Coin type ID
      * @param coinName Coin name
@@ -111,9 +126,11 @@ contract PNSResolver is AccessControl, Initializable, UUPSUpgradeable, Reentranc
      * @param coinType Coin type (60 for ETH/Polygon)
      * @param addr Address to store
      */
-    function setAddr(bytes32 nameHash, uint256 coinType, address addr) external nonReentrant {
-        require(msg.sender == tx.origin || hasRole(REGISTRY_ROLE, msg.sender), "Resolver: Unauthorized");
-
+    function setAddr(bytes32 nameHash, uint256 coinType, address addr)
+        external
+        nonReentrant
+        onlyAuthorizedForName(nameHash)
+    {
         addressRecords[nameHash][coinType] = addr;
         emit AddressRecordSet(nameHash, coinType, addr);
         _emitRecordUpdated(
@@ -136,9 +153,11 @@ contract PNSResolver is AccessControl, Initializable, UUPSUpgradeable, Reentranc
      * @param nameHash Hash of the name
      * @param addr Polygon address
      */
-    function setPolygonAddr(bytes32 nameHash, address addr) external nonReentrant {
-        require(msg.sender == tx.origin || hasRole(REGISTRY_ROLE, msg.sender), "Resolver: Unauthorized");
-
+    function setPolygonAddr(bytes32 nameHash, address addr)
+        external
+        nonReentrant
+        onlyAuthorizedForName(nameHash)
+    {
         addressRecords[nameHash][966] = addr;
         emit AddressRecordSet(nameHash, 966, addr);
         _emitRecordUpdated(
@@ -163,8 +182,11 @@ contract PNSResolver is AccessControl, Initializable, UUPSUpgradeable, Reentranc
      * @param key Record key (e.g., "avatar", "email", "website")
      * @param value Record value
      */
-    function setText(bytes32 nameHash, string calldata key, string calldata value) external nonReentrant {
-        require(msg.sender == tx.origin || hasRole(REGISTRY_ROLE, msg.sender), "Resolver: Unauthorized");
+    function setText(bytes32 nameHash, string calldata key, string calldata value)
+        external
+        nonReentrant
+        onlyAuthorizedForName(nameHash)
+    {
         require(bytes(key).length > 0, "Resolver: Invalid key");
 
         textRecords[nameHash][key] = value;
@@ -191,8 +213,8 @@ contract PNSResolver is AccessControl, Initializable, UUPSUpgradeable, Reentranc
     function setMultipleTextRecords(bytes32 nameHash, string[] calldata keys, string[] calldata values)
         external
         nonReentrant
+        onlyAuthorizedForName(nameHash)
     {
-        require(msg.sender == tx.origin || hasRole(REGISTRY_ROLE, msg.sender), "Resolver: Unauthorized");
         require(keys.length == values.length, "Resolver: Array length mismatch");
 
         for (uint256 i = 0; i < keys.length; i++) {
@@ -212,8 +234,11 @@ contract PNSResolver is AccessControl, Initializable, UUPSUpgradeable, Reentranc
      * @param nameHash Hash of the name
      * @param hash Content hash bytes
      */
-    function setContentHash(bytes32 nameHash, bytes calldata hash) external nonReentrant {
-        require(msg.sender == tx.origin || hasRole(REGISTRY_ROLE, msg.sender), "Resolver: Unauthorized");
+    function setContentHash(bytes32 nameHash, bytes calldata hash)
+        external
+        nonReentrant
+        onlyAuthorizedForName(nameHash)
+    {
         require(hash.length > 0, "Resolver: Invalid content hash");
 
         contentHashRecords[nameHash] = hash;
@@ -224,8 +249,11 @@ contract PNSResolver is AccessControl, Initializable, UUPSUpgradeable, Reentranc
     /**
      * @dev Sets a custom bytes record
      */
-    function setCustomRecord(bytes32 nameHash, bytes32 keyHash, bytes calldata value) external nonReentrant {
-        require(msg.sender == tx.origin || hasRole(REGISTRY_ROLE, msg.sender), "Resolver: Unauthorized");
+    function setCustomRecord(bytes32 nameHash, bytes32 keyHash, bytes calldata value)
+        external
+        nonReentrant
+        onlyAuthorizedForName(nameHash)
+    {
         customRecords[nameHash][keyHash] = value;
         _emitRecordUpdated(nameHash, keyHash, RECORD_TYPE_CUSTOM, value);
     }
@@ -240,8 +268,11 @@ contract PNSResolver is AccessControl, Initializable, UUPSUpgradeable, Reentranc
     /**
      * @dev Clears a custom record
      */
-    function clearCustomRecord(bytes32 nameHash, bytes32 keyHash) external nonReentrant {
-        require(msg.sender == tx.origin || hasRole(REGISTRY_ROLE, msg.sender), "Resolver: Unauthorized");
+    function clearCustomRecord(bytes32 nameHash, bytes32 keyHash)
+        external
+        nonReentrant
+        onlyAuthorizedForName(nameHash)
+    {
         delete customRecords[nameHash][keyHash];
         _emitRecordUpdated(nameHash, keyHash, RECORD_TYPE_CUSTOM, "");
     }
@@ -272,9 +303,11 @@ contract PNSResolver is AccessControl, Initializable, UUPSUpgradeable, Reentranc
      * @dev Clears all records for a name
      * @param nameHash Hash of the name
      */
-    function clearRecords(bytes32 nameHash) external nonReentrant {
-        require(msg.sender == tx.origin || hasRole(REGISTRY_ROLE, msg.sender), "Resolver: Unauthorized");
-
+    function clearRecords(bytes32 nameHash)
+        external
+        nonReentrant
+        onlyAuthorizedForName(nameHash)
+    {
         // Note: We can't iterate over mappings, so we clear known records
         // In production, you'd want to track which records exist
         delete contentHashRecords[nameHash];

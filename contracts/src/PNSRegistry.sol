@@ -388,9 +388,12 @@ contract PNSRegistry is AccessControl, Initializable, UUPSUpgradeable, Reentranc
      */
     function expireName(bytes32 nameHash) external onlyRole(REGISTRAR_ROLE) nameExists(nameHash) nonReentrant {
         require(records[nameHash].expiration <= block.timestamp, "PNS: Name not yet expired");
+        address nameOwner = records[nameHash].owner;
         delete records[nameHash];
         delete exists[nameHash];
-        delete reverseRecords[records[nameHash].owner];
+        if (reverseRecords[nameOwner] == nameHash) {
+            delete reverseRecords[nameOwner];
+        }
 
         emit NameExpired(nameHash);
     }

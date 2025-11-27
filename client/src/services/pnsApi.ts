@@ -17,7 +17,7 @@ export interface DomainRecord {
 
 export interface PriceResponse {
   price: string;
-  currency: 'ETH';
+  currency: 'ETH' | 'MATIC';
   chain: 'polygon';
   priceWei?: string;
 }
@@ -42,7 +42,7 @@ export interface ApiResponse<T = any> {
  */
 export async function checkDomainAvailability(name: string): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/available/${name}`);
+    const response = await fetch(`${API_BASE_URL}/available/${name}?chain=polygon`);
     const data: ApiResponse<{ available: boolean }> = await response.json();
     
     if (data.success) {

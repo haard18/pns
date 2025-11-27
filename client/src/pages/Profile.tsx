@@ -80,10 +80,10 @@ const container = {
   },
 };
 
-const item = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } },
-};
+// const item = {
+//   initial: { opacity: 0, y: 12 },
+//   animate: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } },
+// };
 
 const scaleIn = {
   initial: { opacity: 0, scale: 0.98 },
@@ -92,14 +92,14 @@ const scaleIn = {
 
 export default function DomainProfile() {
   const { address } = useWallet();
-  const { getUserDomains, renew, isLoading } = useDomain();
+  const { getUserDomains,  } = useDomain();
   
   const [activeTab, setActiveTab] = useState("Domain Settings");
   const [showSocialsModal, setShowSocialsModal] = useState(false);
   const [showAddressesModal, setShowAddressesModal] = useState(false);
   const [showOtherRecordsModal, setShowOtherRecordsModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [userDomains, setUserDomains] = useState<any[]>([]);
+  const [, setUserDomains] = useState<any[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<any | null>(null);
 
   useEffect(() => {
@@ -220,7 +220,7 @@ export default function DomainProfile() {
       <motion.main className="grid grid-cols-1 lg:grid-cols-3 gap-6" variants={container}>
         {/* Left sidebar (spans 1 col) */}
         <section className="col-span-1 space-y-5">
-          {sidebarItems.map((s, idx) => (
+          {sidebarItems.map((s, ) => (
             <motion.div
               key={s.title}
               className="p-4 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"

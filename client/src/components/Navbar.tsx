@@ -1,39 +1,36 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { useAccount, useConnect, useDisconnect } from "wagmi";
-
 import logo from "../assets/Logo.png";
 import walletIcon from "../assets/wallet.svg";
+import { useWallet } from "../contexts/WalletContext";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
 
-  // -------------- EVM (Polygon) --------------
-  const { address: evmAddress, isConnected: isEvmConnected } = useAccount();
-  const { connect, connectors } = useConnect();
-  const { disconnect: disconnectEvm } = useDisconnect();
+  const wallet = useWallet();
 
-  // Unified state
-  const isConnected = isEvmConnected;
-  const displayAddress = evmAddress || "";
-  const chain = isEvmConnected ? "Polygon" : "";
+  const isConnected = wallet.isConnected;
+  const displayAddress = wallet.address || "";
+  const chainLabel = wallet.providerType === 'EVM' ? (wallet.chainId ? 'Polygon' : 'EVM') : wallet.providerType === 'SOL' ? 'Solana' : '';
 
-  // -------------- Handlers --------------
-  const handleConnectWallet = async () => {
-    const connector = connectors[0];
-    if (connector) await connect({ connector });
-    setShowWalletMenu(false);
-  };
+  const handleConnectMetaMask = async () => {
+    await wallet.connect('metamask')
+    setShowWalletMenu(false)
+  }
+
+  const handleConnectPhantom = async () => {
+    await wallet.connect('phantom')
+    setShowWalletMenu(false)
+  }
 
   const handleDisconnect = () => {
-    if (isEvmConnected) disconnectEvm();
-  };
+    wallet.disconnect()
+  }
 
   const formatAddress = (addr: string) =>
     addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
 
-  // Animations
   const menuVariants = {
     hidden: { opacity: 0, y: -10 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.25 } }
@@ -46,13 +43,10 @@ export default function Navbar() {
 
   return (
     <nav className="w-full flex items-center justify-between px-4 md:px-8 py-4 mt-5 text-white">
-      
-      {/* Logo */}
       <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
         <img src={logo} alt="Logo" className="h-8 w-auto" />
       </motion.div>
 
-      {/* DESKTOP MENU */}
       <motion.div
         className="hidden md:flex items-center gap-8"
         initial={{ opacity: 0, x: 20 }}
@@ -70,7 +64,7 @@ export default function Navbar() {
             {isConnected ? (
               <>
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                {formatAddress(displayAddress)} ({chain})
+                {formatAddress(displayAddress)} ({chainLabel})
               </>
             ) : (
               <>
@@ -85,7 +79,7 @@ export default function Navbar() {
               variants={menuVariants}
               initial="hidden"
               animate="visible"
-              className="absolute right-0 mt-2 w-48 bg-black border border-[#2349E2] rounded shadow-lg z-50"
+              className="absolute right-0 mt-2 w-56 bg-black border border-[#2349E2] rounded shadow-lg z-50"
             >
               {isConnected ? (
                 <motion.button
@@ -96,20 +90,28 @@ export default function Navbar() {
                   Disconnect Wallet
                 </motion.button>
               ) : (
-                <motion.button
-                  onClick={handleConnectWallet}
-                  className="w-full text-left px-4 py-3 hover:bg-[#2349E2]/20"
-                  whileHover={{ x: 4 }}
-                >
-                  Connect Polygon
-                </motion.button>
+                <div className="flex flex-col">
+                  <motion.button
+                    onClick={handleConnectMetaMask}
+                    className="w-full text-left px-4 py-3 hover:bg-[#2349E2]/20"
+                    whileHover={{ x: 4 }}
+                  >
+                    Connect MetaMask (Polygon)
+                  </motion.button>
+                  <motion.button
+                    onClick={handleConnectPhantom}
+                    className="w-full text-left px-4 py-3 hover:bg-[#2349E2]/20"
+                    whileHover={{ x: 4 }}
+                  >
+                    Connect Phantom (Solana)
+                  </motion.button>
+                </div>
               )}
             </motion.div>
           )}
         </div>
       </motion.div>
 
-      {/* MOBILE: hamburger */}
       <motion.button
         className="md:hidden flex flex-col gap-1.5"
         onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -119,7 +121,6 @@ export default function Navbar() {
         <span className={`w-6 h-0.5 bg-white ${isMenuOpen ? "-rotate-45 -translate-y-2" : ""}`} />
       </motion.button>
 
-      {/* MOBILE MENU */}
       {isMenuOpen && (
         <motion.div
           variants={mobileMenuVariants}
@@ -138,7 +139,7 @@ export default function Navbar() {
               {isConnected ? (
                 <>
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  {formatAddress(displayAddress)} ({chain})
+                  {formatAddress(displayAddress)} ({chainLabel})
                 </>
               ) : (
                 <>
@@ -164,13 +165,22 @@ export default function Navbar() {
                     Disconnect Wallet
                   </motion.button>
                 ) : (
-                  <motion.button
-                    onClick={handleConnectWallet}
-                    className="w-full text-left px-4 py-3 text-white hover:bg-[#2349E2]/20"
-                    whileHover={{ x: 4 }}
-                  >
-                    Connect Polygon
-                  </motion.button>
+                  <div className="flex flex-col">
+                    <motion.button
+                      onClick={handleConnectMetaMask}
+                      className="w-full text-left px-4 py-3 text-white hover:bg-[#2349E2]/20"
+                      whileHover={{ x: 4 }}
+                    >
+                      Connect MetaMask (Polygon)
+                    </motion.button>
+                    <motion.button
+                      onClick={handleConnectPhantom}
+                      className="w-full text-left px-4 py-3 text-white hover:bg-[#2349E2]/20"
+                      whileHover={{ x: 4 }}
+                    >
+                      Connect Phantom (Solana)
+                    </motion.button>
+                  </div>
                 )}
               </motion.div>
             )}

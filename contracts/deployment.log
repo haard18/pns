@@ -1,0 +1,64 @@
+Compiling 1 files with Solc 0.8.24
+Solc 0.8.24 finished in 684.39ms
+Compiler run successful!
+Script ran successfully.
+
+== Logs ==
+  Deploying PNS System...
+  Admin: 0xD894A520ed104f468490c78312A4e01A2AF18078
+  Treasury: 0xD894A520ed104f468490c78312A4e01A2AF18078
+  
+=== Deploying PNSRegistry ===
+  PNSRegistry deployed at: 0x08CA1CB2ebc4AB7d709fCe5Da9f185D950E21D38
+  
+=== Deploying PNSPriceOracle ===
+  PNSPriceOracle deployed at: 0xBF7E19638ddd7c7D312aE06a387d5F838c4a8C73
+  
+=== Deploying PNSResolver ===
+  PNSResolver deployed at: 0x4f15efcE62cE45c402408015A34CD7c3a43fAC07
+  
+=== Deploying PNSRegistrar ===
+  PNSRegistrar deployed at: 0x1E4461AB41652Ac9d84FA215c4AD443857e10c95
+  
+=== Deploying PNSController ===
+  PNSController deployed at: 0x72673ECA8BC86c6fe65221Bf90ea68A1A529A2a7
+  
+=== Deploying PNSDomainNFT ===
+  PNSDomainNFT deployed at: 0x889F312473288c6F8D3f57F563D0bcA7D8789Acf
+  
+=== Setting up Roles ===
+  Granted REGISTRAR_ROLE to Registrar
+  Granted REGISTRY_ROLE to Registry
+  Granted CONTROLLER_ROLE to Controller
+  
+=== Deployment Complete ===
+  Registry: 0x08CA1CB2ebc4AB7d709fCe5Da9f185D950E21D38
+  PriceOracle: 0xBF7E19638ddd7c7D312aE06a387d5F838c4a8C73
+  Resolver: 0x4f15efcE62cE45c402408015A34CD7c3a43fAC07
+  Registrar: 0x1E4461AB41652Ac9d84FA215c4AD443857e10c95
+  Controller: 0x72673ECA8BC86c6fe65221Bf90ea68A1A529A2a7
+  NFT: 0x889F312473288c6F8D3f57F563D0bcA7D8789Acf
+
+## Setting up 1 EVM.
+
+==========================
+
+Chain 137
+
+Estimated gas price: 125.790734598 gwei
+
+Estimated total gas used for script: 32480693
+
+Estimated amount required: 4.085770232722116414 POL
+
+==========================
+
+
+==========================
+
+ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
+
+Transactions saved to: /Users/hardy/Developer/scalper/nameservice/contracts/broadcast/DeployPNS.s.sol/137/run-latest.json
+
+Sensitive values saved to: /Users/hardy/Developer/scalper/nameservice/contracts/cache/DeployPNS.s.sol/137/run-latest.json
+

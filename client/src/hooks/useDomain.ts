@@ -1,9 +1,12 @@
 /**
  * Custom hook for domain operations
+ * Uses DIRECT CONTRACT CALLS for reads, API only for transaction recording
  */
 import { useState, useCallback } from 'react'
 import * as pnsApi from '../services/pnsApi'
 import type { DomainRecord, PriceResponse } from '../services/pnsApi'
+import { useContracts } from './useContracts'
+import { useWallet } from '../contexts/WalletContext'
 
 export interface UseDomainState {
   domain: DomainRecord | null
@@ -11,14 +14,17 @@ export interface UseDomainState {
   isAvailable: boolean | null
   isLoading: boolean
   error: string | null
+  txHash: string | null
+  isConfirming: boolean
+  isConfirmed: boolean
 }
 
 export interface UseDomainActions {
   checkAvailability: (name: string) => Promise<boolean>
-  getPrice: (name: string, duration?: number) => Promise<PriceResponse | null>
+  getPrice: (name: string, durationYears?: number) => Promise<PriceResponse | null>
   getDomainDetails: (name: string) => Promise<DomainRecord | null>
-  register: (name: string, owner: string, duration: number, resolver?: string) => Promise<DomainRecord | null>
-  renew: (name: string, duration: number) => Promise<DomainRecord | null>
+  register: (name: string, owner: string, durationYears: number) => Promise<DomainRecord | null>
+  renew: (name: string, durationYears: number) => Promise<DomainRecord | null>
   getUserDomains: (address: string) => Promise<DomainRecord[]>
   reset: () => void
 }
@@ -29,27 +35,34 @@ export function useDomain(): UseDomainState & UseDomainActions {
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [txHash, setTxHash] = useState<string | null>(null)
+
+  const { address, chainId } = useWallet()
+  const contracts = useContracts()
 
   const reset = useCallback(() => {
     setDomain(null)
     setPrice(null)
     setIsAvailable(null)
     setError(null)
+    setTxHash(null)
   }, [])
 
+  // DIRECT CONTRACT CALL - No API
   const checkAvailability = useCallback(async (name: string): Promise<boolean> => {
     try {
       setIsLoading(true)
       setError(null)
-      
+
       // Validate domain name
       const validation = pnsApi.validateDomainName(name)
       if (!validation.valid) {
         setError(validation.error || 'Invalid domain name')
         return false
       }
-      
-      const available = await pnsApi.checkDomainAvailability(name)
+
+      // Call contract directly
+      const available = await contracts.checkAvailability(name)
       setIsAvailable(available)
       return available
     } catch (err) {
@@ -59,13 +72,24 @@ export function useDomain(): UseDomainState & UseDomainActions {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [contracts])
 
-  const getPrice = useCallback(async (name: string, duration = 31536000): Promise<PriceResponse | null> => {
+  // DIRECT CONTRACT CALL - No API
+  const getPrice = useCallback(async (name: string, durationYears = 1): Promise<PriceResponse | null> => {
     try {
       setIsLoading(true)
       setError(null)
-      const priceData = await pnsApi.getDomainPrice(name, duration)
+
+      // Call contract directly
+      const priceMatic = await contracts.getDomainPrice(name, durationYears)
+
+      const priceData: PriceResponse = {
+        price: priceMatic,
+        currency: 'MATIC',
+        chain: 'polygon',
+        priceWei: (BigInt(parseFloat(priceMatic) * 1e18)).toString()
+      }
+
       setPrice(priceData)
       return priceData
     } catch (err) {
@@ -75,13 +99,33 @@ export function useDomain(): UseDomainState & UseDomainActions {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [contracts])
 
+  // DIRECT CONTRACT CALL - No API
   const getDomainDetails = useCallback(async (name: string): Promise<DomainRecord | null> => {
     try {
       setIsLoading(true)
       setError(null)
-      const domainData = await pnsApi.getDomainDetails(name)
+
+      // Call contracts directly
+      const owner = await contracts.getDomainOwner(name)
+      const expiration = await contracts.getDomainExpiration(name)
+      const resolver = await contracts.getDomainResolver(name)
+
+      if (!owner) {
+        return null
+      }
+
+      const domainData: DomainRecord = {
+        name: name.endsWith('.poly') ? name : `${name}.poly`,
+        chain: 'polygon',
+        owner,
+        expires: expiration || 0,
+        resolver: resolver || undefined,
+        txHash: '',
+        registeredAt: 0
+      }
+
       setDomain(domainData)
       return domainData
     } catch (err) {
@@ -91,15 +135,63 @@ export function useDomain(): UseDomainState & UseDomainActions {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [contracts])
 
   const register = useCallback(
-    async (name: string, owner: string, duration: number, resolver?: string): Promise<DomainRecord | null> => {
+    async (name: string, owner: string, durationYears: number): Promise<DomainRecord | null> => {
       try {
         setIsLoading(true)
         setError(null)
-        const result = await pnsApi.registerDomain(name, owner, duration, resolver)
+
+        if (!address) {
+          throw new Error('Wallet not connected')
+        }
+
+        // Register via direct contract call
+        const txResult = await contracts.registerDomain(name, owner, durationYears)
+
+        // Determine txHash from the returned value, contracts.hash, or txResult.hash
+        let txHashFromCall: string | undefined = undefined
+        if (typeof txResult === 'string') {
+          txHashFromCall = txResult
+        } else if (txResult && (txResult as any).hash) {
+          txHashFromCall = (txResult as any).hash
+        } else if (contracts.hash) {
+          txHashFromCall = contracts.hash
+        }
+
+        if (txHashFromCall) {
+          setTxHash(txHashFromCall)
+        }
+
+        // Create a domain record from the transaction
+        const result: DomainRecord = {
+          name: `${name}.poly`,
+          chain: 'polygon',
+          owner,
+          expires: Math.floor(Date.now() / 1000) + (durationYears * 365 * 24 * 60 * 60),
+          txHash: txHashFromCall || '',
+          registeredAt: Math.floor(Date.now() / 1000),
+        }
+
         setDomain(result)
+
+        // Record in backend database after successful transaction
+        if ((contracts.isConfirmed && (contracts.hash || txHashFromCall)) || txHashFromCall) {
+          const { recordTransaction } = await import('../services/dbService')
+          await recordTransaction({
+            txHash: txHashFromCall || contracts.hash || '',
+            type: 'register',
+            domainName: result.name,
+            owner,
+            chainId: chainId || 31337,
+            timestamp: result.registeredAt,
+            metadata: {
+              duration: durationYears,
+            }
+          })
+        }
+
         return result
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to register domain'
@@ -109,16 +201,19 @@ export function useDomain(): UseDomainState & UseDomainActions {
         setIsLoading(false)
       }
     },
-    []
+    [address, contracts, chainId]
   )
 
-  const renew = useCallback(async (name: string, duration: number): Promise<DomainRecord | null> => {
+  const renew = useCallback(async (name: string, durationYears: number): Promise<DomainRecord | null> => {
     try {
       setIsLoading(true)
       setError(null)
-      const result = await pnsApi.renewDomain(name, duration)
-      setDomain(result)
-      return result
+
+      await contracts.renewDomain(name, durationYears)
+
+      // Get updated domain details
+      const updated = await getDomainDetails(name)
+      return updated
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to renew domain'
       setError(message)
@@ -126,8 +221,9 @@ export function useDomain(): UseDomainState & UseDomainActions {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [contracts, getDomainDetails])
 
+  // This still uses API as it requires indexing
   const getUserDomains = useCallback(async (address: string): Promise<DomainRecord[]> => {
     try {
       setIsLoading(true)
@@ -147,8 +243,11 @@ export function useDomain(): UseDomainState & UseDomainActions {
     domain,
     price,
     isAvailable,
-    isLoading,
-    error,
+    isLoading: isLoading || contracts.isPending,
+    error: error || (contracts.writeError?.message || null),
+    txHash,
+    isConfirming: contracts.isConfirming,
+    isConfirmed: contracts.isConfirmed,
     // Actions
     checkAvailability,
     getPrice,

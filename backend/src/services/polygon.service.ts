@@ -4,43 +4,54 @@ import { DomainRecord, PriceResponse, WrapState } from '../types';
 import { namehash, getFullDomainName, formatPrice } from '../utils/namehash';
 import logger from '../utils/logger';
 
+// Controller ABI - human-readable format
 const CONTROLLER_ABI = [
-  'function registerDomain(string name, address owner, uint256 duration) external payable',
-  'function registerWithAddress(string name, address owner, uint256 duration, address resolverAddr) external payable',
-  'function renewDomain(string name, uint256 duration) external payable',
-  'function isDomainAvailable(string name) external view returns (bool)',
-  'function getDomainOwner(string name) external view returns (address)',
-  'function getDomainExpiration(string name) external view returns (uint256)'
+  'function registerDomain(string name, address owner, uint256 duration) payable',
+  'function registerWithAddress(string name, address owner, uint256 duration, address resolverAddr) payable',
+  'function renewDomain(string name, uint256 duration) payable',
+  'function isDomainAvailable(string name) view returns (bool)',
+  'function getDomainOwner(string name) view returns (address)',
+  'function getDomainExpiration(string name) view returns (uint64)',
+  'function getDomainResolver(string name) view returns (address)'
 ];
 
+// Registry ABI
 const REGISTRY_ABI = [
-  'function records(bytes32) external view returns (address owner, address resolver, uint64 expiration, uint96 reserved)',
-  'function exists(bytes32) external view returns (bool)',
-  'function getNameRecord(bytes32) external view returns (address owner, address resolver, uint64 expiration)',
-  'function mirrorData(bytes32 nameHash) external view returns (bytes32 solanaPda, uint64 lastSyncedSlot, uint8 wrapState)',
-  'function setSolanaPointer(bytes32 nameHash, bytes32 solanaPda, uint64 slot) external',
-  'function setWrapState(bytes32 nameHash, uint8 state) external'
+  'function records(bytes32) view returns (address owner, address resolver, uint64 expiration, uint96 reserved)',
+  'function exists(bytes32) view returns (bool)',
+  'function getNameRecord(bytes32) view returns (address owner, address resolver, uint64 expiration)',
+  'function mirrorData(bytes32 nameHash) view returns (bytes32 solanaPda, uint64 lastSyncedSlot, uint8 wrapState)',
+  'function setSolanaPointer(bytes32 nameHash, bytes32 solanaPda, uint64 slot)',
+  'function setWrapState(bytes32 nameHash, uint8 state)',
+  'function getReverseRecord(address addr) view returns (bytes32)',
+  'function isValid(bytes32 nameHash) view returns (bool)'
 ];
 
+// Price Oracle ABI
 const PRICE_ORACLE_ABI = [
-  'function getPrice(bytes32 nameHash, string name, uint256 duration) external view returns (uint256)'
+  'function getPrice(bytes32 nameHash, string name, uint256 duration) view returns (uint256)'
 ];
 
+// Resolver ABI
 const RESOLVER_ABI = [
-  'function setText(bytes32 nameHash, string key, string value) external',
-  'function setPolygonAddr(bytes32 nameHash, address addr) external',
-  'function setAddr(bytes32 nameHash, uint256 coinType, address addr) external',
-  'function setContentHash(bytes32 nameHash, bytes calldata hash) external',
-  'function setCustomRecord(bytes32 nameHash, bytes32 keyHash, bytes calldata value) external',
-  'function clearCustomRecord(bytes32 nameHash, bytes32 keyHash) external'
+  'function setText(bytes32 nameHash, string key, string value)',
+  'function setPolygonAddr(bytes32 nameHash, address addr)',
+  'function setAddr(bytes32 nameHash, uint256 coinType, address addr)',
+  'function getText(bytes32 nameHash, string key) view returns (string)',
+  'function getPolygonAddr(bytes32 nameHash) view returns (address)',
+  'function setContentHash(bytes32 nameHash, bytes hash)',
+  'function setCustomRecord(bytes32 nameHash, bytes32 keyHash, bytes value)',
+  'function clearCustomRecord(bytes32 nameHash, bytes32 keyHash)'
 ];
 
+// NFT ABI
 const NFT_ABI = [
-  'function mintDomain(string name, bytes32 nameHash, address owner) external',
-  'function burnDomain(uint256 tokenId) external',
-  'function freezeToken(uint256 tokenId) external',
-  'function unfreezeToken(uint256 tokenId) external',
-  'function getTokenId(bytes32 nameHash) external view returns (uint256)'
+  'function mintDomain(string name, bytes32 nameHash, address owner)',
+  'function burnDomain(uint256 tokenId)',
+  'function freezeToken(uint256 tokenId)',
+  'function unfreezeToken(uint256 tokenId)',
+  'function getTokenId(bytes32 nameHash) view returns (uint256)',
+  'function balanceOf(address owner) view returns (uint256)'
 ];
 
 export class PolygonService {
@@ -81,6 +92,13 @@ export class PolygonService {
     this.nft = Config.polygon.contracts.nft
       ? new Contract(Config.polygon.contracts.nft, NFT_ABI, this.provider)
       : null;
+      
+    // Debug logging
+    logger.info('PolygonService initialized', {
+      controllerAddress: Config.polygon.contracts.controller,
+      registryAddress: Config.polygon.contracts.registry,
+      rpcUrl: Config.polygon.rpcUrl
+    });
   }
 
   private getWallet(privateKey?: string): Wallet {
@@ -271,6 +289,13 @@ export class PolygonService {
   async setTextRecord(name: string, key: string, value: string, privateKey?: string): Promise<string> {
     const nameHash = this.getNameHash(name);
     const wallet = this.getWallet(privateKey);
+
+    // Pre-flight ownership & expiration check for clearer UX and defense in depth
+    const registryRecord = await this.registry.getNameRecord(nameHash);
+    if (registryRecord.owner.toLowerCase() !== wallet.address.toLowerCase()) {
+      throw new Error('Polygon: Only the domain owner can update text records');
+    }
+
     const resolver = this.resolver.connect(wallet) as Contract;
     const tx = await resolver.setText(nameHash, key, value);
     const receipt = await tx.wait();
@@ -285,6 +310,12 @@ export class PolygonService {
   ): Promise<string> {
     const nameHash = this.getNameHash(name);
     const wallet = this.getWallet(privateKey);
+
+    const registryRecord = await this.registry.getNameRecord(nameHash);
+    if (registryRecord.owner.toLowerCase() !== wallet.address.toLowerCase()) {
+      throw new Error('Polygon: Only the domain owner can update address records');
+    }
+
     const resolver = this.resolver.connect(wallet) as Contract;
     const tx = await resolver.setAddr(nameHash, coinType, addressValue);
     const receipt = await tx.wait();
@@ -294,6 +325,12 @@ export class PolygonService {
   async setContentHashRecord(name: string, hexContentHash: string, privateKey?: string): Promise<string> {
     const nameHash = this.getNameHash(name);
     const wallet = this.getWallet(privateKey);
+
+    const registryRecord = await this.registry.getNameRecord(nameHash);
+    if (registryRecord.owner.toLowerCase() !== wallet.address.toLowerCase()) {
+      throw new Error('Polygon: Only the domain owner can update content hash records');
+    }
+
     const resolver = this.resolver.connect(wallet) as Contract;
     const hashBytes = ethers.getBytes(hexContentHash);
     const tx = await resolver.setContentHash(nameHash, hashBytes);
@@ -309,6 +346,12 @@ export class PolygonService {
   ): Promise<string> {
     const nameHash = this.getNameHash(name);
     const wallet = this.getWallet(privateKey);
+
+    const registryRecord = await this.registry.getNameRecord(nameHash);
+    if (registryRecord.owner.toLowerCase() !== wallet.address.toLowerCase()) {
+      throw new Error('Polygon: Only the domain owner can update custom records');
+    }
+
     const resolver = this.resolver.connect(wallet) as Contract;
     const keyBytes = ethers.getBytes(keyHash);
     const valueBytes = ethers.toUtf8Bytes(value);
@@ -320,6 +363,12 @@ export class PolygonService {
   async clearCustomRecord(name: string, keyHash: string, privateKey?: string): Promise<string> {
     const nameHash = this.getNameHash(name);
     const wallet = this.getWallet(privateKey);
+
+    const registryRecord = await this.registry.getNameRecord(nameHash);
+    if (registryRecord.owner.toLowerCase() !== wallet.address.toLowerCase()) {
+      throw new Error('Polygon: Only the domain owner can clear custom records');
+    }
+
     const resolver = this.resolver.connect(wallet) as Contract;
     const keyBytes = ethers.getBytes(keyHash);
     const tx = await resolver.clearCustomRecord(nameHash, keyBytes);

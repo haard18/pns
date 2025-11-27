@@ -40,6 +40,9 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
     /// @notice Maximum registration length
     uint256 public constant MAX_NAME_LENGTH = 63;
 
+    /// @notice Maximum allowed registration duration in years
+    uint256 public constant MAX_REGISTRATION_DURATION_YEARS = 10;
+
     /// @notice Auction structure for premium names
     struct PremiumAuction {
         address highestBidder;
@@ -273,13 +276,20 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         uint256 nameLength = bytes(name).length;
         require(nameLength >= MIN_NAME_LENGTH && nameLength <= MAX_NAME_LENGTH, "Registrar: Invalid name length");
         require(_isValidName(name), "Registrar: Invalid characters");
+        require(duration > 0 && duration <= MAX_REGISTRATION_DURATION_YEARS, "Registrar: Invalid duration");
 
-        // Check if name exists and is expired
+        // If the name already exists, enforce grace period and explicitly expire it
+        // before allowing a fresh registration. This avoids conflating registration
+        // with renewal and keeps registry state consistent.
         if (registry.exists(nameHash)) {
             (,, uint64 expiration) = registry.getNameRecord(nameHash);
             require(expiration + gracePeriod <= block.timestamp, "Registrar: Name not available");
-            // Name is available after grace period
+            // After grace period, mark the name as expired in the registry
+            registry.expireName(nameHash);
         }
+
+        // Ensure no concurrent registration has happened before proceeding
+        require(!registry.exists(nameHash), "Registrar: Name already registered");
 
         // Get price and validate payment
         uint256 price = priceOracle.getPrice(nameHash, name, duration);
@@ -288,12 +298,8 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         // Calculate expiration
         uint64 newExpiration = uint64(block.timestamp + (duration * 365 days));
 
-        // Register in registry
-        if (!registry.exists(nameHash)) {
-            registry.registerName(nameHash, owner, resolver, newExpiration);
-        } else {
-            registry.renewName(nameHash, newExpiration);
-        }
+        // Register fresh name in registry
+        registry.registerName(nameHash, owner, resolver, newExpiration);
 
         // Transfer payment to treasury
         (bool success,) = treasury.call{value: price}("");
@@ -315,7 +321,7 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         require(registry.exists(nameHash), "Registrar: Name does not exist");
         (address owner,, uint64 expiration) = registry.getNameRecord(nameHash);
         require(msg.sender == owner, "Registrar: Not name owner");
-        require(duration > 0, "Registrar: Invalid duration");
+        require(duration > 0 && duration <= MAX_REGISTRATION_DURATION_YEARS, "Registrar: Invalid duration");
 
         // Calculate new expiration
         uint64 renewalExpiration = uint64(expiration + (duration * 365 days));
@@ -392,6 +398,12 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         onlyRole(ADMIN_ROLE)
         nonReentrant
     {
+        // Sanity check that the provided name matches the nameHash to avoid
+        // confusing events with mismatched labels.
+        require(
+            keccak256(abi.encodePacked(name, ".poly")) == nameHash, "Registrar: name/nameHash mismatch"
+        );
+
         PremiumAuction storage auction = auctions[nameHash];
 
         require(!auction.concluded, "Registrar: Auction already concluded");

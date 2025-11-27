@@ -1,0 +1,16 @@
+{
+  "name": "PNS Domain Token",
+  "description": "A domain registered on the Polygon Naming Service (PNS).",
+  "image": "ipfs://bafkreieytfymclcwmfwxnwhpvv6demzkpyyrk54bdchpdj2hiohpa65q6u",
+  "external_url": "https://poly.domains",
+  "attributes": [
+    {
+      "trait_type": "Registry",
+      "value": "Polygon Naming Service"
+    },
+    {
+      "trait_type": "Type",
+      "value": "Domain NFT"
+    }
+  ]
+}

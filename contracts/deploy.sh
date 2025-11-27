@@ -78,7 +78,7 @@ NFT=$(forge create src/PNSDomainNFT.sol:PNSDomainNFT \
   --rpc-url $RPC_URL \
   --private-key $ADMIN_KEY \
   --broadcast \
-  --constructor-args $ADMIN "https://pns.poly/metadata/" 2>&1 | grep "Deployed to:" | awk '{print $NF}')
+  --constructor-args $REGISTRY "https://pns.poly/metadata/" 2>&1 | grep "Deployed to:" | awk '{print $NF}')
 echo -e "${GREEN}✓ PNSDomainNFT: $NFT${NC}"
 echo ""
 
@@ -117,7 +117,7 @@ cast send $REGISTRAR 'initialize(address,address,address,address)' $REGISTRY $PR
 echo -e "${GREEN}✓ PNSRegistrar initialized${NC}"
 
 echo "Initializing PNSController..."
-cast send $CONTROLLER 'initialize(address,address,address,address)' $REGISTRY $REGISTRAR $RESOLVER $TREASURY \
+cast send $CONTROLLER 'initialize(address,address,address,address,address)' $REGISTRY $REGISTRAR $RESOLVER $TREASURY $PRICE_ORACLE \
   --rpc-url $RPC_URL \
   --private-key $ADMIN_KEY \
   > /dev/null 2>&1

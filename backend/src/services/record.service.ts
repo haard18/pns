@@ -54,6 +54,10 @@ export class RecordService {
   }
 
   async upsertRecord(request: RecordWriteRequest): Promise<RecordResponse> {
+    if (request.chain !== 'polygon') {
+      throw new Error(`Unsupported chain for records: ${request.chain}`);
+    }
+
     const fullName = getFullDomainName(request.name);
     const nameHashHex = namehash(fullName);
     const version = Date.now();

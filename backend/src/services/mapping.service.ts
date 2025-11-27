@@ -35,7 +35,6 @@ export class MappingService {
   private static instance: MappingService;
   private pool: Pool | null = null;
   private ready: Promise<void>;
-  private isConnected: boolean = false;
 
   private constructor() {
     this.ready = this.initializePool();
@@ -54,14 +53,12 @@ export class MappingService {
         connectionString: Config.database.url
       });
       await this.ensureTables();
-      this.isConnected = true;
       logger.info('MappingService connected to database');
     } catch (error) {
       logger.warn('MappingService database connection failed - running in memory-only mode', {
         error: error instanceof Error ? error.message : String(error)
       });
       this.pool = null;
-      this.isConnected = false;
       // Service will continue to work with no persistence
     }
   }
