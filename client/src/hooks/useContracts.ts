@@ -52,13 +52,6 @@ export function useContracts() {
     };
 
     /**
-     * Helper function to calculate duration in seconds
-     */
-    const calculateDuration = (years: number): number => {
-        return years * 365 * 24 * 60 * 60; // years to seconds
-    };
-
-    /**
      * Helper function to check if domain is available
      */
     const isDomainAvailable = (expiration: number): boolean => {
@@ -129,20 +122,21 @@ export function useContracts() {
     const getDomainPrice = async (name: string, durationYears: number): Promise<bigint> => {
         try {
             const nameHash = getNameHash(name);
-            const duration = BigInt(calculateDuration(durationYears));
+            const cleanName = name.replace(/\.poly$/i, '');
             
+            // Contract expects number of years, not seconds
             const price = await readContract(config, {
                 address: contracts.priceOracle,
                 abi: PNSPriceOracleABI,
                 functionName: 'getPrice',
-                args: [nameHash, name, duration],
+                args: [nameHash, cleanName, BigInt(durationYears)],
             });
             
             return price as bigint;
         } catch (error) {
             console.error('Error fetching price, using fallback:', error);
-            // Fallback price: 0.1 ETH per year
-            const fallbackPrice = parseEther('0.1');
+            // Fallback price: 0.5 MATIC per year for 5+ char domains
+            const fallbackPrice = parseEther('0.5');
             return fallbackPrice * BigInt(durationYears);
         }
     };
