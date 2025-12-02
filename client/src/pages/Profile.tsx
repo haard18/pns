@@ -12,63 +12,6 @@ import Navbar from "../components/Navbar";
  * Keep your :root CSS vars (--primary-gradient, --text-light, etc.) in App.css
  */
 
-const sidebarItems = [
-  {
-    title: "Socials",
-    small: "Edit",
-    isEditable: true,
-    content: (
-      <div className="flex gap-3">
-        {/* icon placeholders */}
-        {["🌐", "✖", "🎮", "✈️", "🐱", "✉️"].map((c, i) => (
-          <div
-            key={i}
-            className="w-10 h-10 rounded-md border border-[rgba(255,255,255,0.06)] flex items-center justify-center text-lg"
-          >
-            {c}
-          </div>
-        ))}
-      </div>
-    ),
-  },
-  {
-    title: "Addresses",
-    small: "Manage",
-    isEditable: true,
-    content: (
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-sm bg-gradient-to-br from-[#00D1FF] to-[#7B61FF] flex items-center justify-center text-white">
-          P
-        </div>
-        <div>
-          <div className="text-sm">Polygon (Deposit Address)</div>
-          <div className="text-xs text-[var(--text-soft)]">0xAbMx...w92sz</div>
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "Ownership",
-    small: "Transfer",
-    isEditable: true,
-    content: (
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-sm border flex items-center justify-center">👤</div>
-        <div>
-          <div className="text-sm">Owner</div>
-          <div className="text-xs text-[var(--text-soft)]">HAbMx...w92sz</div>
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "Other records",
-    small: "Configure",
-    isEditable: true,
-    content: <div className="text-sm">DNS and Decentralized storage</div>,
-  },
-];
-
 const rightTabs = ["Domain Settings", "Subdomains", "Advanced", "Activity"];
 
 const container = {
@@ -80,11 +23,6 @@ const container = {
   },
 };
 
-// const item = {
-//   initial: { opacity: 0, y: 12 },
-//   animate: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } },
-// };
-
 const scaleIn = {
   initial: { opacity: 0, scale: 0.98 },
   animate: { opacity: 1, scale: 1, transition: { duration: 0.45 } },
@@ -92,7 +30,7 @@ const scaleIn = {
 
 export default function DomainProfile() {
   const { address } = useWallet();
-  const { getUserDomains,  } = useDomain();
+  const { getUserDomains, setTextRecord, getTextRecord, setAddressRecord, getAddressRecord } = useDomain();
   
   const [activeTab, setActiveTab] = useState("Domain Settings");
   const [showSocialsModal, setShowSocialsModal] = useState(false);
@@ -101,6 +39,9 @@ export default function DomainProfile() {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [, setUserDomains] = useState<any[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<any | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const loadDomains = async () => {
@@ -109,11 +50,43 @@ export default function DomainProfile() {
         setUserDomains(domains);
         if (domains.length > 0) {
           setSelectedDomain(domains[0]);
+          // Load existing records for the first domain
+          loadExistingRecords(domains[0].name);
         }
       }
     };
     loadDomains();
   }, [address, getUserDomains]);
+
+  // Load existing records from the resolver
+  const loadExistingRecords = async (domainName: string) => {
+    try {
+      const [website, twitter, telegram, discord, email, github] = await Promise.all([
+        getTextRecord(domainName, 'url'),
+        getTextRecord(domainName, 'com.twitter'),
+        getTextRecord(domainName, 'org.telegram'),
+        getTextRecord(domainName, 'com.discord'),
+        getTextRecord(domainName, 'email'),
+        getTextRecord(domainName, 'com.github'),
+      ]);
+      
+      setSocials({ website, twitter, telegram, discord, email, github });
+      
+      // Load polygon address record (coinType 60 for ETH-compatible)
+      const polygonAddr = await getAddressRecord(domainName, 60);
+      setPolygonAddress(polygonAddr);
+      
+      // Load other records
+      const [ipfs, arwv, ipns] = await Promise.all([
+        getTextRecord(domainName, 'contentHash'),
+        getTextRecord(domainName, 'arweave'),
+        getTextRecord(domainName, 'ipns'),
+      ]);
+      setOtherRecords(prev => ({ ...prev, ipfs, arwv, ipns }));
+    } catch (err) {
+      console.error('Error loading existing records:', err);
+    }
+  };
 
   const [socials, setSocials] = useState({
     website: "",
@@ -141,32 +114,121 @@ export default function DomainProfile() {
     setSocials(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveSocials = () => {
-    // Save logic here
-    setShowSocialsModal(false);
+  const handleSaveSocials = async () => {
+    if (!selectedDomain?.name) {
+      setSaveError('No domain selected');
+      return;
+    }
+    
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(null);
+    
+    try {
+      // Map social fields to standard text record keys
+      const recordsToSave = [
+        { key: 'url', value: socials.website },
+        { key: 'com.twitter', value: socials.twitter },
+        { key: 'org.telegram', value: socials.telegram },
+        { key: 'com.discord', value: socials.discord },
+        { key: 'email', value: socials.email },
+        { key: 'com.github', value: socials.github },
+      ].filter(r => r.value); // Only save non-empty values
+      
+      for (const record of recordsToSave) {
+        await setTextRecord(selectedDomain.name, record.key, record.value);
+      }
+      
+      setSaveSuccess('Social records saved successfully! Transaction(s) submitted.');
+      setTimeout(() => {
+        setShowSocialsModal(false);
+        setSaveSuccess(null);
+      }, 2000);
+    } catch (err: any) {
+      console.error('Error saving socials:', err);
+      setSaveError(err.message || 'Failed to save social records');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleSaveAddress = () => {
-    // Save address logic here
-    setShowAddressesModal(false);
+  const handleSaveAddress = async () => {
+    if (!selectedDomain?.name || !polygonAddress) {
+      setSaveError('Please enter an address');
+      return;
+    }
+    
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(null);
+    
+    try {
+      // CoinType 60 = Ethereum/Polygon address
+      await setAddressRecord(selectedDomain.name, 60, polygonAddress);
+      setSaveSuccess('Address record saved! Transaction submitted.');
+      setTimeout(() => {
+        setShowAddressesModal(false);
+        setSaveSuccess(null);
+      }, 2000);
+    } catch (err: any) {
+      console.error('Error saving address:', err);
+      setSaveError(err.message || 'Failed to save address record');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleVerifyAddress = () => {
-    // Verify address logic here
-    console.log("Verifying address:", polygonAddress);
+    // Verify by checking if address matches connected wallet
+    if (polygonAddress.toLowerCase() === address?.toLowerCase()) {
+      setSaveSuccess('Address matches connected wallet ✓');
+    } else {
+      setSaveError('Address does not match connected wallet');
+    }
   };
 
   const handleOtherRecordChange = (field: string, value: string) => {
     setOtherRecords(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveOtherRecords = () => {
-    // Save other records logic here
-    setShowOtherRecordsModal(false);
+  const handleSaveOtherRecords = async () => {
+    if (!selectedDomain?.name) {
+      setSaveError('No domain selected');
+      return;
+    }
+    
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(null);
+    
+    try {
+      const recordsToSave = [
+        { key: 'contentHash', value: otherRecords.ipfs },
+        { key: 'arweave', value: otherRecords.arwv },
+        { key: 'ipns', value: otherRecords.ipns },
+        { key: 'dns.A', value: otherRecords.dnsA },
+        { key: 'dns.AAAA', value: otherRecords.dnsAAAA },
+        { key: 'dns.CNAME', value: otherRecords.dnsCNAME },
+      ].filter(r => r.value);
+      
+      for (const record of recordsToSave) {
+        await setTextRecord(selectedDomain.name, record.key, record.value);
+      }
+      
+      setSaveSuccess('Records saved successfully! Transaction(s) submitted.');
+      setTimeout(() => {
+        setShowOtherRecordsModal(false);
+        setSaveSuccess(null);
+      }, 2000);
+    } catch (err: any) {
+      console.error('Error saving other records:', err);
+      setSaveError(err.message || 'Failed to save records');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSaveTransferAddress = () => {
-    // Save transfer address logic here
     console.log("Saving transfer address:", transferAddress);
   };
 
@@ -175,10 +237,77 @@ export default function DomainProfile() {
       alert("Please confirm that you understand the risks");
       return;
     }
-    // Transfer domain logic here
     console.log("Transferring domain to:", transferAddress);
     setShowTransferModal(false);
   };
+
+  // Build sidebar items dynamically based on loaded records
+  const sidebarItems = [
+    {
+      title: "Socials",
+      small: "Edit",
+      isEditable: true,
+      content: (
+        <div className="flex gap-3">
+          {[
+            socials.website ? "🌐" : "🌐",
+            socials.twitter ? "✖" : "✖",
+            socials.discord ? "🎮" : "🎮",
+            socials.telegram ? "✈️" : "✈️",
+            socials.github ? "🐱" : "🐱",
+            socials.email ? "✉️" : "✉️"
+          ].map((c, i) => (
+            <div
+              key={i}
+              className="w-10 h-10 rounded-md border border-[rgba(255,255,255,0.06)] flex items-center justify-center text-lg"
+            >
+              {c}
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      title: "Addresses",
+      small: "Manage",
+      isEditable: true,
+      content: (
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-sm bg-gradient-to-br from-[#00D1FF] to-[#7B61FF] flex items-center justify-center text-white">
+            P
+          </div>
+          <div>
+            <div className="text-sm">Polygon (Deposit Address)</div>
+            <div className="text-xs text-[var(--text-soft)]">
+              {polygonAddress ? `${polygonAddress.slice(0, 6)}...${polygonAddress.slice(-4)}` : 'Not set'}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "Ownership",
+      small: "Transfer",
+      isEditable: true,
+      content: (
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-sm border flex items-center justify-center">👤</div>
+          <div>
+            <div className="text-sm">Owner</div>
+            <div className="text-xs text-[var(--text-soft)]">
+              {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Not connected'}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "Other records",
+      small: "Configure",
+      isEditable: true,
+      content: <div className="text-sm">DNS and Decentralized storage</div>,
+    },
+  ];
 
   return (
     <motion.div
@@ -468,12 +597,25 @@ export default function DomainProfile() {
                 </div>
               </div>
 
+              {/* Status Messages */}
+              {saveError && (
+                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                  {saveError}
+                </div>
+              )}
+              {saveSuccess && (
+                <div className="mt-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 text-sm">
+                  {saveSuccess}
+                </div>
+              )}
+
               {/* Save Button */}
               <button
                 onClick={handleSaveSocials}
-                className="w-full mt-6 bg-[#2349E2] text-white py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition"
+                disabled={isSaving}
+                className="w-full mt-6 bg-[#2349E2] text-white py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50"
               >
-                Save
+                {isSaving ? 'Saving...' : 'Save'}
               </button>
             </motion.div>
           </motion.div>
@@ -512,10 +654,22 @@ export default function DomainProfile() {
 
               {/* Solana Address Section */}
               <div className="mb-8">
-                <h3 className="text-lg font-semibold text-white mb-2">Solana Address (Fund receiving address)</h3>
+                <h3 className="text-lg font-semibold text-white mb-2">Polygon Address (Fund receiving address)</h3>
                 <p className="text-sm text-[var(--text-soft)] mb-4">
                   This alternative address will receive funds sent to your domain, and can differ from the address holding your domain. It is commonly used to direct funds to a hot wallet, while your domain remains in a cold wallet.
                 </p>
+
+                {/* Status Messages */}
+                {saveError && (
+                  <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                    {saveError}
+                  </div>
+                )}
+                {saveSuccess && (
+                  <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 text-sm">
+                    {saveSuccess}
+                  </div>
+                )}
 
                 <div className="flex gap-3">
                   <input
@@ -527,9 +681,10 @@ export default function DomainProfile() {
                   />
                   <button
                     onClick={handleSaveAddress}
-                    className="bg-[#2349E2] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition whitespace-nowrap"
+                    disabled={isSaving}
+                    className="bg-[#2349E2] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition whitespace-nowrap disabled:opacity-50"
                   >
-                    Save
+                    {isSaving ? 'Saving...' : 'Save'}
                   </button>
                   <button
                     onClick={handleVerifyAddress}

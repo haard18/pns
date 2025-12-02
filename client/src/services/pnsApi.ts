@@ -247,7 +247,17 @@ export function formatAddress(address: string, chars = 6): string {
 /**
  * Format big number with decimals
  */
-export function formatNumber(value: string | number, decimals = 4): string {
+export function formatNumber(value: string | number | bigint, decimals = 4): string {
+  if (typeof value === 'bigint') {
+    // Convert wei to ether
+    const divisor = BigInt(10 ** 18);
+    const wholePart = value / divisor;
+    const remainder = value % divisor;
+    const decimalPart = Number(remainder) / Number(divisor);
+    const result = Number(wholePart) + decimalPart;
+    return result.toFixed(decimals);
+  }
   const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(num)) return '0.0000';
   return num.toFixed(decimals);
 }

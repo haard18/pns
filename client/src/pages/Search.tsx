@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../App.css";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../components/Navbar";
@@ -34,6 +35,7 @@ const containerVariants = {
 const Search: React.FC = () => {
   const [searchInput, setSearchInput] = useState("");
   const [suggestedDomains, setSuggestedDomains] = useState<string[]>([]);
+  const navigate = useNavigate();
 
   const { checkAvailability, getPrice, isLoading, error } = useDomain();
 
@@ -186,7 +188,7 @@ const Search: React.FC = () => {
                       disabled={!searchResults.available}
                       onClick={() => {
                         const domainName = searchResults.name.includes(".poly") ? searchResults.name : `${searchResults.name}.poly`;
-                        window.location.href = `/register?domain=${encodeURIComponent(domainName)}&price=${encodeURIComponent(searchResults.price)}`;
+                        navigate(`/register?domain=${encodeURIComponent(domainName)}&price=${encodeURIComponent(searchResults.price)}`);
                       }}
                       className="flex-1 px-4 py-3 bg-[#2349E2] hover:bg-[#1e3bc5] transition rounded-md disabled:opacity-50"
                     >
@@ -252,7 +254,7 @@ const Search: React.FC = () => {
                             } catch (err) {
                               price = "0";
                             }
-                            window.location.href = `/register?domain=${encodeURIComponent(domain)}&price=${encodeURIComponent(price)}`;
+                            navigate(`/register?domain=${encodeURIComponent(domain)}&price=${encodeURIComponent(price)}`);
                           }}
                           className="px-3 py-2 bg-[#2349E2] hover:bg-[#1e3bc5] transition rounded-md"
                         >

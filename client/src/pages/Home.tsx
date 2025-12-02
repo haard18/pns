@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import "../App.css";
 import bars from "../assets/bars.png";
@@ -34,10 +35,11 @@ const scaleIn = {
 
 const Home = () => {
   const [searchInput, setSearchInput] = useState("");
+  const navigate = useNavigate();
 
   const handleSearch = () => {
     if (searchInput.trim()) {
-      window.location.href = `/search?query=${encodeURIComponent(searchInput)}`;
+      navigate(`/search?query=${encodeURIComponent(searchInput)}`);
     }
   };
   return (

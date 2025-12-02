@@ -185,8 +185,33 @@ export function getRegistrationError(error: any): string {
  * @param decimals Number of decimal places to show
  * @returns Formatted MATIC string
  */
-export function formatMatic(weiAmount: bigint | string, decimals: number = 4): string {
-  const wei = typeof weiAmount === 'string' ? BigInt(weiAmount) : weiAmount;
-  const ether = Number(wei) / 1e18;
-  return ether.toFixed(decimals);
+export function formatMatic(weiAmount: bigint | string | number, decimals: number = 4): string {
+  let wei: bigint;
+  
+  if (typeof weiAmount === 'number') {
+    // If it's already a small number (like from contract that returns formatted), handle it
+    if (weiAmount < 1e10) {
+      return weiAmount.toFixed(decimals);
+    }
+    wei = BigInt(Math.floor(weiAmount));
+  } else if (typeof weiAmount === 'string') {
+    // Handle string that might be decimal or wei
+    if (weiAmount.includes('.')) {
+      return parseFloat(weiAmount).toFixed(decimals);
+    }
+    wei = BigInt(weiAmount);
+  } else {
+    wei = weiAmount;
+  }
+  
+  // Convert wei to ether (18 decimals)
+  const divisor = BigInt(10 ** 18);
+  const wholePart = wei / divisor;
+  const remainder = wei % divisor;
+  
+  // Convert remainder to decimal
+  const decimalPart = Number(remainder) / Number(divisor);
+  const result = Number(wholePart) + decimalPart;
+  
+  return result.toFixed(decimals);
 }

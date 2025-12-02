@@ -4,48 +4,151 @@ import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import { useDomain } from "../hooks/useDomain";
 import { useWallet } from "../contexts/WalletContext";
+import { formatExpiration } from "../lib/namehash";
 
 const ManageDomain = () => {
   const { domainName } = useParams<{ domainName: string }>();
   const navigate = useNavigate();
-  const { renew, getDomainDetails,  } = useDomain();
+  const { renew, getDomainDetails, setTextRecord, getTextRecord, domain } = useDomain();
   const { address } = useWallet();
   
   const [activeTab, setActiveTab] = useState<"records" | "subdomains" | "permissions">("records");
   const [domainDetails, setDomainDetails] = useState<any | null>(null);
   const [renewing, setRenewing] = useState(false);
+  const [savingRecord, setSavingRecord] = useState(false);
+  const [recordError, setRecordError] = useState<string | null>(null);
+  const [recordSuccess, setRecordSuccess] = useState<string | null>(null);
 
+  // Records state - loaded from contract
+  const [records, setRecords] = useState<{ key: string; value: string; type: string }[]>([]);
+  const [newRecord, setNewRecord] = useState({ key: "", value: "" });
+  const [isAddingRecord, setIsAddingRecord] = useState(false);
+  const [loadingRecords, setLoadingRecords] = useState(true);
+
+  // Load domain details and existing records
   useEffect(() => {
     const loadDomain = async () => {
       if (domainName) {
-        const details = await getDomainDetails(domainName);
-        setDomainDetails(details);
+        await getDomainDetails(domainName);
+        await loadExistingRecords();
       }
     };
     loadDomain();
   }, [domainName, getDomainDetails]);
 
-  // Sample data - replace with actual API calls
-  const [records, setRecords] = useState([
-    { key: "ETH Address", value: "0x1234...5678", type: "address" },
-    { key: "BTC Address", value: "bc1q...xyz", type: "crypto" },
-    { key: "Email", value: "user@example.com", type: "text" },
-    { key: "Website", value: "https://example.com", type: "url" },
-  ]);
+  // Update domainDetails when domain changes
+  useEffect(() => {
+    if (domain) {
+      setDomainDetails({
+        ...domain,
+        expirationDate: formatExpiration(domain.expiration)
+      });
+    }
+  }, [domain]);
 
-  const [newRecord, setNewRecord] = useState({ key: "", value: "" });
-  const [isAddingRecord, setIsAddingRecord] = useState(false);
-
-  const handleAddRecord = () => {
-    if (newRecord.key && newRecord.value) {
-      setRecords([...records, { ...newRecord, type: "text" }]);
-      setNewRecord({ key: "", value: "" });
-      setIsAddingRecord(false);
+  // Load existing text records from the resolver
+  const loadExistingRecords = async () => {
+    if (!domainName) return;
+    setLoadingRecords(true);
+    
+    try {
+      // Common record keys to check
+      const commonKeys = [
+        { key: 'url', label: 'Website' },
+        { key: 'email', label: 'Email' },
+        { key: 'avatar', label: 'Avatar' },
+        { key: 'description', label: 'Description' },
+        { key: 'com.twitter', label: 'Twitter' },
+        { key: 'com.github', label: 'GitHub' },
+        { key: 'com.discord', label: 'Discord' },
+        { key: 'org.telegram', label: 'Telegram' },
+        { key: 'contentHash', label: 'IPFS' },
+      ];
+      
+      const loadedRecords: { key: string; value: string; type: string }[] = [];
+      
+      for (const { key, label } of commonKeys) {
+        try {
+          const value = await getTextRecord(domainName, key);
+          if (value) {
+            loadedRecords.push({ key: label, value, type: 'text' });
+          }
+        } catch (err) {
+          // Record doesn't exist, skip
+        }
+      }
+      
+      setRecords(loadedRecords);
+    } catch (err) {
+      console.error('Error loading records:', err);
+    } finally {
+      setLoadingRecords(false);
     }
   };
 
-  const handleDeleteRecord = (index: number) => {
-    setRecords(records.filter((_, i) => i !== index));
+  // Map display label to actual record key
+  const getRecordKey = (displayKey: string): string => {
+    const keyMap: { [key: string]: string } = {
+      'Website': 'url',
+      'Email': 'email',
+      'Avatar': 'avatar',
+      'Description': 'description',
+      'Twitter': 'com.twitter',
+      'GitHub': 'com.github',
+      'Discord': 'com.discord',
+      'Telegram': 'org.telegram',
+      'IPFS': 'contentHash',
+    };
+    return keyMap[displayKey] || displayKey.toLowerCase();
+  };
+
+  const handleAddRecord = async () => {
+    if (!newRecord.key || !newRecord.value || !domainName) return;
+    
+    setSavingRecord(true);
+    setRecordError(null);
+    setRecordSuccess(null);
+    
+    try {
+      const recordKey = getRecordKey(newRecord.key);
+      await setTextRecord(domainName, recordKey, newRecord.value);
+      
+      // Add to local state
+      setRecords([...records, { key: newRecord.key, value: newRecord.value, type: "text" }]);
+      setNewRecord({ key: "", value: "" });
+      setIsAddingRecord(false);
+      setRecordSuccess('Record saved! Transaction submitted.');
+      setTimeout(() => setRecordSuccess(null), 3000);
+    } catch (err: any) {
+      console.error('Error adding record:', err);
+      setRecordError(err.message || 'Failed to add record');
+    } finally {
+      setSavingRecord(false);
+    }
+  };
+
+  const handleDeleteRecord = async (index: number) => {
+    const record = records[index];
+    if (!domainName) return;
+    
+    setSavingRecord(true);
+    setRecordError(null);
+    
+    try {
+      const recordKey = getRecordKey(record.key);
+      // Set to empty string to "delete" the record
+      await setTextRecord(domainName, recordKey, '');
+      
+      // Remove from local state
+      setRecords(records.filter((_, i) => i !== index));
+      setRecordSuccess('Record deleted! Transaction submitted.');
+      setTimeout(() => setRecordSuccess(null), 3000);
+    } catch (err: any) {
+      console.error('Error deleting record:', err);
+      setRecordError(err.message || 'Failed to delete record');
+    } finally {
+      setSavingRecord(false);
+    }
   };
 
   const handleRenewDomain = async () => {
@@ -53,11 +156,12 @@ const ManageDomain = () => {
     setRenewing(true);
     try {
       await renew(domainName, 1); // Renew for 1 year
-      alert("Domain renewed successfully!");
-      const details = await getDomainDetails(domainName);
-      setDomainDetails(details);
+      alert("Domain renewal transaction submitted!");
+      // Refresh domain details
+      await getDomainDetails(domainName);
     } catch (err) {
       console.error("Renewal failed:", err);
+      alert(`Renewal failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setRenewing(false);
     }
@@ -166,11 +270,24 @@ const ManageDomain = () => {
               <h2 className="text-2xl text-white font-semibold">Domain Records</h2>
               <button
                 onClick={() => setIsAddingRecord(!isAddingRecord)}
-                className="bg-[#2349E2] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#1e3dc7] transition"
+                disabled={savingRecord}
+                className="bg-[#2349E2] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50"
               >
                 + Add Record
               </button>
             </div>
+
+            {/* Status Messages */}
+            {recordError && (
+              <div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200">
+                {recordError}
+              </div>
+            )}
+            {recordSuccess && (
+              <div className="mb-4 p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200">
+                {recordSuccess}
+              </div>
+            )}
 
             {/* Add Record Form */}
             {isAddingRecord && (
@@ -180,13 +297,22 @@ const ManageDomain = () => {
                 className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-6 mb-4"
               >
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  <input
-                    type="text"
-                    placeholder="Key (e.g., Email)"
+                  <select
                     value={newRecord.key}
                     onChange={(e) => setNewRecord({ ...newRecord, key: e.target.value })}
-                    className="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.06)] rounded-lg px-4 py-3 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2]"
-                  />
+                    className="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.06)] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#2349E2]"
+                  >
+                    <option value="">Select record type...</option>
+                    <option value="Website">Website</option>
+                    <option value="Email">Email</option>
+                    <option value="Avatar">Avatar URL</option>
+                    <option value="Description">Description</option>
+                    <option value="Twitter">Twitter</option>
+                    <option value="GitHub">GitHub</option>
+                    <option value="Discord">Discord</option>
+                    <option value="Telegram">Telegram</option>
+                    <option value="IPFS">IPFS Content Hash</option>
+                  </select>
                   <input
                     type="text"
                     placeholder="Value"
@@ -198,9 +324,10 @@ const ManageDomain = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={handleAddRecord}
-                    className="bg-[#2349E2] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#1e3dc7] transition"
+                    disabled={savingRecord || !newRecord.key || !newRecord.value}
+                    className="bg-[#2349E2] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50"
                   >
-                    Save Record
+                    {savingRecord ? 'Saving...' : 'Save Record'}
                   </button>
                   <button
                     onClick={() => {
@@ -215,39 +342,46 @@ const ManageDomain = () => {
               </motion.div>
             )}
 
-            {/* Records List */}
-            <div className="space-y-3">
-              {records.map((record, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + index * 0.05 }}
-                  className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-5 hover:border-[rgba(255,255,255,0.12)] transition group"
-                  style={{ backdropFilter: "blur(10px)" }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="text-[var(--text-soft)] text-sm mb-1">{record.key}</div>
-                      <div className="text-white font-medium break-all">{record.value}</div>
-                    </div>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                      <button className="bg-[#2349E2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#1e3dc7] transition">
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRecord(index)}
-                        className="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-500/20 transition border border-red-500/20"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+            {/* Loading State */}
+            {loadingRecords && (
+              <div className="text-center py-12">
+                <p className="text-[var(--text-soft)] text-lg">Loading records...</p>
+              </div>
+            )}
 
-            {records.length === 0 && !isAddingRecord && (
+            {/* Records List */}
+            {!loadingRecords && (
+              <div className="space-y-3">
+                {records.map((record, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 + index * 0.05 }}
+                    className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-5 hover:border-[rgba(255,255,255,0.12)] transition group"
+                    style={{ backdropFilter: "blur(10px)" }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="text-[var(--text-soft)] text-sm mb-1">{record.key}</div>
+                        <div className="text-white font-medium break-all">{record.value}</div>
+                      </div>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
+                        <button
+                          onClick={() => handleDeleteRecord(index)}
+                          disabled={savingRecord}
+                          className="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-500/20 transition border border-red-500/20 disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {!loadingRecords && records.length === 0 && !isAddingRecord && (
               <div className="text-center py-12">
                 <p className="text-[var(--text-soft)] text-lg mb-4">No records yet</p>
                 <button

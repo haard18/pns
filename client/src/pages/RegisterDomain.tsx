@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import logo from "../assets/Logo.png";
 import { x, tg, discord } from "../assets/footer";
@@ -9,6 +10,7 @@ import { recordTransaction } from "../services/dbService";
 // formatNumber not needed here
 
 const RegisterDomain = () => {
+    const navigate = useNavigate();
     const wallet = useWallet();
     const { address } = wallet;
     const { register, getPrice } = useDomain();
@@ -152,7 +154,7 @@ const RegisterDomain = () => {
 
             alert('Transaction submitted. Check your wallet / explorer for confirmation.');
             setConfirming(false);
-            setTimeout(() => (window.location.href = '/profile'), 1500);
+            setTimeout(() => navigate('/profile'), 1500);
         } catch (err) {
             console.error('Registration failed:', err);
             alert(`Registration failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
