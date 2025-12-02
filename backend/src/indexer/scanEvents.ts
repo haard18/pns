@@ -22,13 +22,16 @@ export class EventIndexer {
   private eventParser: EventParser;
   private domainService: DomainService;
   private state: IndexerState;
-  private readonly batchSize = 1000; // blocks per batch
+  private readonly batchSize: number;
   private readonly maxRetries = 3;
   private scanInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.eventParser = new EventParser(Config.polygon.rpcUrl);
     this.domainService = new DomainService();
+    
+    // Use config batch size, default to 5 for QuickNode free tier compatibility
+    this.batchSize = Config.indexer.batchSize || 5;
     
     this.state = {
       lastProcessedBlock: 0,
