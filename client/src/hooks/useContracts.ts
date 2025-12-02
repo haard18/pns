@@ -1,22 +1,38 @@
 /**
  * Custom hook for direct contract interactions
  * Provides typed contract instances and methods for PNS operations
+ * According to new architecture: Frontend calls contracts directly for all operations
  */
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useConfig } from 'wagmi';
 import { readContract } from 'wagmi/actions';
-import { parseEther, keccak256, toBytes, formatEther, encodeFunctionData } from 'viem';
-import {
-    getContractAddresses,
-    PNSControllerABI,
-    PNSPriceOracleABI,
-    PNSResolverABI,
-    PNSRegistrarABI,
-} from '../config/contractConfig';
+import { parseEther, encodeFunctionData } from 'viem';
+import { getContractAddresses, PNSControllerABI, PNSPriceOracleABI, PNSResolverABI, PNSRegistryABI } from '../config/contractConfig';
+import { namehash, validateDomainName } from '../lib/namehash';
+
+export interface DomainInfo {
+  name: string;
+  nameHash: `0x${string}`;
+  owner: `0x${string}`;
+  expiration: number;
+  resolver: `0x${string}`;
+  available: boolean;
+}
+
+export interface RegistrationResult {
+  success: boolean;
+  txHash?: `0x${string}`;
+  error?: string;
+}
 
 export function useContracts() {
     const { address, chainId } = useAccount();
     const config = useConfig();
-    const contracts = getContractAddresses(chainId || 31337);
+    
+    if (!chainId) {
+        throw new Error('No chain connected');
+    }
+    
+    const contracts = getContractAddresses(chainId);
 
     // Write contract hook
     const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
@@ -27,93 +43,73 @@ export function useContracts() {
     });
 
     /**
-     * Calculate namehash for a domain
+     * Helper function to create namehash
      */
     const getNameHash = (name: string): `0x${string}` => {
-        const fullName = name.endsWith('.poly') ? name : `${name}.poly`;
-        return keccak256(toBytes(fullName));
+        // Remove .poly suffix if present
+        const cleanName = name.replace(/\.poly$/i, '');
+        return namehash(cleanName + '.poly') as `0x${string}`;
     };
 
     /**
-     * Register a domain directly on-chain
+     * Helper function to calculate duration in seconds
      */
-    const registerDomain = async (name: string, owner: string, durationYears: number) => {
-        console.log('[useContracts] registerDomain called - wallet address, chainId:', address, chainId);
-        if (!address) throw new Error('Wallet not connected');
+    const calculateDuration = (years: number): number => {
+        return years * 365 * 24 * 60 * 60; // years to seconds
+    };
 
-        // Query price from the price oracle so we send exact amount
+    /**
+     * Helper function to check if domain is available
+     */
+    const isDomainAvailable = (expiration: number): boolean => {
+        return expiration === 0 || Date.now() / 1000 > expiration;
+    };
+
+    /**
+     * Get domain information directly from registry
+     */
+    const getDomainInfo = async (name: string): Promise<DomainInfo> => {
         const nameHash = getNameHash(name);
+        
         try {
-            const priceWei = await readContract(config, {
-                address: contracts.priceOracle,
-                abi: PNSPriceOracleABI,
-                functionName: 'getPrice',
-                args: [nameHash, name, BigInt(durationYears)],
-            }) as bigint;
-            console.log('[useContracts] registerDomain - priceWei:', priceWei.toString(), 'name:', name, 'years:', durationYears);
-            const writeParams = {
-                address: contracts.controller,
-                abi: PNSControllerABI,
-                functionName: 'registerDomain',
-                args: [name, owner as `0x${string}`, BigInt(durationYears)],
-                value: priceWei,
-            } as const;
-            console.log('[useContracts] registerDomain - writeParams:', writeParams);
-            try {
-                const writeResult: unknown = await writeContract(writeParams);
-                // If writeContract returns a tx hash or object, return it so callers can record it
-                if (writeResult) {
-                    return writeResult;
-                }
-            } catch (err) {
-                console.warn('[useContracts] writeContract error (will fallback to eth_sendTransaction):', err);
-            }
-
-            // Fallback: encode function data and use window.ethereum to send tx (ensures MetaMask prompt)
-            try {
-                const data = encodeFunctionData({ abi: PNSControllerABI as any, functionName: 'registerDomain', args: [name, owner as `0x${string}`, BigInt(durationYears)] });
-                const valueHex = '0x' + priceWei.toString(16);
-                const anyWin = window as any;
-                if (anyWin?.ethereum && anyWin.ethereum.request) {
-                    console.log('[useContracts] fallback eth_sendTransaction params', { to: contracts.controller, from: address, data, value: valueHex });
-                    const txHash = await anyWin.ethereum.request({
-                        method: 'eth_sendTransaction',
-                        params: [{ to: contracts.controller, from: address, data, value: valueHex }],
-                    });
-                    console.log('[useContracts] fallback eth_sendTransaction txHash:', txHash);
-                    return txHash;
-                } else {
-                    throw new Error('No window.ethereum provider available for fallback send');
-                }
-            } catch (err) {
-                console.error('[useContracts] fallback send failed:', err);
-                throw err;
-            }
-        } catch (err) {
-            console.error('Failed to fetch price from oracle, falling back to fixed price:', err);
-            const fallback = parseEther('0.1');
-            const totalPrice = fallback * BigInt(durationYears);
-            console.log('[useContracts] registerDomain - fallback totalPrice:', totalPrice.toString(), 'name:', name, 'years:', durationYears);
-            const fallbackParams = {
-                address: contracts.controller,
-                abi: PNSControllerABI,
-                functionName: 'registerDomain',
-                args: [name, owner as `0x${string}`, BigInt(durationYears)],
-                value: totalPrice,
-            } as const;
-            console.log('[useContracts] registerDomain - fallbackParams:', fallbackParams);
-            return writeContract(fallbackParams);
+            // Read from registry contract
+            const record = await readContract(config, {
+                address: contracts.registry,
+                abi: PNSRegistryABI,
+                functionName: 'records',
+                args: [nameHash],
+            });
+            
+            const [owner, resolver, expiration] = record as [string, string, bigint];
+            
+            return {
+                name,
+                nameHash,
+                owner: owner as `0x${string}`,
+                resolver: resolver as `0x${string}`,
+                expiration: Number(expiration),
+                available: isDomainAvailable(Number(expiration)),
+            };
+        } catch (error) {
+            console.error('Error fetching domain info:', error);
+            // Return default available domain info if read fails
+            return {
+                name,
+                nameHash,
+                owner: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+                resolver: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+                expiration: 0,
+                available: true,
+            };
         }
     };
 
     /**
-     * Check if domain is available - DIRECT CONTRACT CALL
+     * Check domain availability
      */
     const checkAvailability = async (name: string): Promise<boolean> => {
         try {
-            // Remove .poly suffix if present - contract expects just the name
             const cleanName = name.replace(/\.poly$/i, '');
-
             const result = await readContract(config, {
                 address: contracts.controller,
                 abi: PNSControllerABI,
@@ -128,225 +124,299 @@ export function useContracts() {
     };
 
     /**
-     * Get domain price - DIRECT CONTRACT CALL
+     * Get domain price from oracle
      */
-    const getDomainPrice = async (name: string, durationYears: number): Promise<string> => {
+    const getDomainPrice = async (name: string, durationYears: number): Promise<bigint> => {
         try {
             const nameHash = getNameHash(name);
-            const result = await readContract(config, {
+            const duration = BigInt(calculateDuration(durationYears));
+            
+            const price = await readContract(config, {
                 address: contracts.priceOracle,
                 abi: PNSPriceOracleABI,
                 functionName: 'getPrice',
-                args: [nameHash, name, BigInt(durationYears)],
+                args: [nameHash, name, duration],
             });
-
-            const priceWei = result as bigint;
-            return formatEther(priceWei);
+            
+            return price as bigint;
         } catch (error) {
-            console.error('Error getting price:', error);
-            return '0';
+            console.error('Error fetching price, using fallback:', error);
+            // Fallback price: 0.1 ETH per year
+            const fallbackPrice = parseEther('0.1');
+            return fallbackPrice * BigInt(durationYears);
         }
     };
 
     /**
-     * Get domain owner - DIRECT CONTRACT CALL
+     * Register a domain directly on-chain
      */
-    const getDomainOwner = async (name: string): Promise<string | null> => {
+    const registerDomain = async (name: string, durationYears: number, _resolverAddress?: string): Promise<RegistrationResult> => {
+        if (!address) {
+            return { success: false, error: 'Wallet not connected' };
+        }
+
+        // Validate domain name
+        const validation = validateDomainName(name);
+        if (!validation.valid) {
+            return { success: false, error: validation.error };
+        }
+
         try {
-            const result = await readContract(config, {
-                address: contracts.controller,
-                abi: PNSControllerABI,
-                functionName: 'getDomainOwner',
-                args: [name],
-            });
-            return result as string;
-        } catch (error) {
-            console.error('Error getting owner:', error);
-            return null;
+            // Check availability first
+            const available = await checkAvailability(name);
+            if (!available) {
+                return { success: false, error: 'Domain is not available' };
+            }
+
+            // Get price
+            const price = await getDomainPrice(name, durationYears);
+            const cleanName = name.replace(/\.poly$/i, '');
+
+            // Register via controller with fallback handling
+            try {
+                writeContract({
+                    address: contracts.controller,
+                    abi: PNSControllerABI,
+                    functionName: 'registerDomain',
+                    args: [cleanName, address, BigInt(durationYears)],
+                    value: price,
+                });
+
+                return { success: true, txHash: hash };
+            } catch (writeError) {
+                console.warn('writeContract failed, trying fallback:', writeError);
+                
+                // Fallback: use window.ethereum directly
+                if (typeof window !== 'undefined' && (window as any).ethereum) {
+                    try {
+                        const data = encodeFunctionData({ 
+                            abi: PNSControllerABI, 
+                            functionName: 'registerDomain', 
+                            args: [cleanName, address as `0x${string}`, BigInt(durationYears)] 
+                        });
+                        
+                        const valueHex = '0x' + price.toString(16);
+                        const txHash = await (window as any).ethereum.request({
+                            method: 'eth_sendTransaction',
+                            params: [{
+                                to: contracts.controller,
+                                from: address,
+                                data,
+                                value: valueHex,
+                            }],
+                        });
+                        
+                        return { success: true, txHash };
+                    } catch (fallbackError) {
+                        console.error('Fallback transaction failed:', fallbackError);
+                        return { success: false, error: 'Transaction failed' };
+                    }
+                } else {
+                    return { success: false, error: 'No wallet provider available' };
+                }
+            }
+        } catch (error: any) {
+            console.error('Registration error:', error);
+            return { success: false, error: error.message || 'Registration failed' };
         }
     };
 
     /**
-     * Get domain expiration - DIRECT CONTRACT CALL
+     * Renew a domain
      */
-    const getDomainExpiration = async (name: string): Promise<number | null> => {
-        try {
-            const result = await readContract(config, {
-                address: contracts.controller,
-                abi: PNSControllerABI,
-                functionName: 'getDomainExpiration',
-                args: [name],
-            });
-            return Number(result);
-        } catch (error) {
-            console.error('Error getting expiration:', error);
-            return null;
+    const renewDomain = async (name: string, durationYears: number): Promise<RegistrationResult> => {
+        if (!address) {
+            return { success: false, error: 'Wallet not connected' };
         }
-    };
 
-    /**
-     * Get domain resolver - DIRECT CONTRACT CALL
-     */
-    const getDomainResolver = async (name: string): Promise<string | null> => {
         try {
-            const result = await readContract(config, {
+            // Check if domain exists and user owns it
+            const domainInfo = await getDomainInfo(name);
+            if (domainInfo.owner !== address) {
+                return { success: false, error: 'You do not own this domain' };
+            }
+
+            // Get renewal price
+            const price = await getDomainPrice(name, durationYears);
+            const cleanName = name.replace(/\.poly$/i, '');
+
+            // Renew via controller
+            writeContract({
                 address: contracts.controller,
                 abi: PNSControllerABI,
-                functionName: 'getDomainResolver',
-                args: [name],
+                functionName: 'renewDomain',
+                args: [cleanName, BigInt(durationYears)],
+                value: price,
             });
-            return result as string;
-        } catch (error) {
-            console.error('Error getting resolver:', error);
-            return null;
+
+            return { success: true, txHash: hash };
+        } catch (error: any) {
+            console.error('Renewal error:', error);
+            return { success: false, error: error.message || 'Renewal failed' };
         }
     };
 
     /**
      * Set text record for a domain
      */
-    const setTextRecord = async (name: string, key: string, value: string) => {
-        if (!address) throw new Error('Wallet not connected');
+    const setTextRecord = async (name: string, key: string, value: string): Promise<RegistrationResult> => {
+        if (!address) {
+            return { success: false, error: 'Wallet not connected' };
+        }
 
-        const nameHash = getNameHash(name);
-
-        return writeContract({
-            address: contracts.resolver,
-            abi: PNSResolverABI,
-            functionName: 'setText',
-            args: [nameHash, key, value],
-        });
-    };
-
-    /**
-     * Get text record for a domain - DIRECT CONTRACT CALL
-     */
-    const getTextRecord = async (name: string, key: string): Promise<string> => {
         try {
+            // Check ownership
+            const domainInfo = await getDomainInfo(name);
+            if (domainInfo.owner !== address) {
+                return { success: false, error: 'You do not own this domain' };
+            }
+
             const nameHash = getNameHash(name);
-            const result = await readContract(config, {
-                address: contracts.resolver,
+
+            // Set text record via resolver
+            writeContract({
+                address: domainInfo.resolver,
                 abi: PNSResolverABI,
-                functionName: 'getText',
-                args: [nameHash, key],
+                functionName: 'setText',
+                args: [nameHash, key, value],
             });
-            return result as string;
-        } catch (error) {
-            console.error('Error getting text record:', error);
-            return '';
+
+            return { success: true, txHash: hash };
+        } catch (error: any) {
+            console.error('Set text record error:', error);
+            return { success: false, error: error.message || 'Failed to set text record' };
         }
     };
 
     /**
      * Set address record for a domain
      */
-    const setAddressRecord = async (name: string, coinType: number, addr: string) => {
-        if (!address) throw new Error('Wallet not connected');
+    const setAddressRecord = async (name: string, coinType: number, addressValue: string): Promise<RegistrationResult> => {
+        if (!address) {
+            return { success: false, error: 'Wallet not connected' };
+        }
 
-        const nameHash = getNameHash(name);
+        try {
+            // Check ownership
+            const domainInfo = await getDomainInfo(name);
+            if (domainInfo.owner !== address) {
+                return { success: false, error: 'You do not own this domain' };
+            }
 
-        return writeContract({
-            address: contracts.resolver,
-            abi: PNSResolverABI,
-            functionName: 'setAddr',
-            args: [nameHash, BigInt(coinType), addr as `0x${string}`],
-        });
+            const nameHash = getNameHash(name);
+
+            // Set address record via resolver
+            writeContract({
+                address: domainInfo.resolver,
+                abi: PNSResolverABI,
+                functionName: 'setAddr',
+                args: [nameHash, BigInt(coinType), addressValue as `0x${string}`],
+            });
+
+            return { success: true, txHash: hash };
+        } catch (error: any) {
+            console.error('Set address record error:', error);
+            return { success: false, error: error.message || 'Failed to set address record' };
+        }
     };
 
     /**
-     * Renew a domain
+     * Get text record for a domain
      */
-    const renewDomain = async (name: string, durationYears: number) => {
-        if (!address) throw new Error('Wallet not connected');
-
-        // Query price from the price oracle so we send exact amount for renewal
-        const nameHash = getNameHash(name);
+    const getTextRecord = async (name: string, key: string): Promise<string> => {
         try {
-            const priceWei = await readContract(config, {
-                address: contracts.priceOracle,
-                abi: PNSPriceOracleABI,
-                functionName: 'getPrice',
-                args: [nameHash, name, BigInt(durationYears)],
-            }) as bigint;
-            console.log('[useContracts] renewDomain - priceWei:', priceWei.toString(), 'name:', name, 'years:', durationYears);
-            const writeParams = {
-                address: contracts.registrar,
-                abi: PNSRegistrarABI,
-                functionName: 'renew',
-                args: [name, BigInt(durationYears)],
-                value: priceWei,
-            } as const;
-            console.log('[useContracts] renewDomain - writeParams:', writeParams);
-            try {
-                const writeResult: unknown = await writeContract(writeParams);
-                if (writeResult) return writeResult;
-            } catch (err) {
-                console.warn('[useContracts] renew writeContract error (will fallback to eth_sendTransaction):', err);
+            const domainInfo = await getDomainInfo(name);
+            if (!domainInfo.resolver || domainInfo.resolver === '0x0000000000000000000000000000000000000000') {
+                return '';
             }
 
-            // Fallback for renew
-            try {
-                const data = encodeFunctionData({ abi: PNSRegistrarABI as any, functionName: 'renew', args: [name, BigInt(durationYears)] });
-                const valueHex = '0x' + priceWei.toString(16);
-                const anyWin = window as any;
-                if (anyWin?.ethereum && anyWin.ethereum.request) {
-                    console.log('[useContracts] fallback eth_sendTransaction params (renew)', { to: contracts.registrar, from: address, data, value: valueHex });
-                    const txHash = await anyWin.ethereum.request({
-                        method: 'eth_sendTransaction',
-                        params: [{ to: contracts.registrar, from: address, data, value: valueHex }],
-                    });
-                    console.log('[useContracts] fallback eth_sendTransaction txHash (renew):', txHash);
-                    return txHash;
-                } else {
-                    throw new Error('No window.ethereum provider available for fallback renew');
-                }
-            } catch (err) {
-                console.error('[useContracts] fallback renew send failed:', err);
-                throw err;
+            const nameHash = getNameHash(name);
+            
+            const result = await readContract(config, {
+                address: domainInfo.resolver,
+                abi: PNSResolverABI,
+                functionName: 'getText',
+                args: [nameHash, key],
+            });
+
+            return result as string;
+        } catch (error) {
+            console.error('Error fetching text record:', error);
+            return '';
+        }
+    };
+
+    /**
+     * Get address record for a domain
+     */
+    const getAddressRecord = async (name: string, coinType: number = 60): Promise<string> => {
+        try {
+            const domainInfo = await getDomainInfo(name);
+            if (!domainInfo.resolver || domainInfo.resolver === '0x0000000000000000000000000000000000000000') {
+                return '';
             }
-        } catch (err) {
-            console.error('Failed to fetch price from oracle for renewal, falling back to fixed price:', err);
-            const fallback = parseEther('0.1');
-            const totalPrice = fallback * BigInt(durationYears);
-            console.log('[useContracts] renewDomain - fallback totalPrice:', totalPrice.toString(), 'name:', name, 'years:', durationYears);
-            const fallbackParams = {
-                address: contracts.registrar,
-                abi: PNSRegistrarABI,
-                functionName: 'renew',
-                args: [name, BigInt(durationYears)],
-                value: totalPrice,
-            } as const;
-            console.log('[useContracts] renewDomain - fallbackParams:', fallbackParams);
-            return writeContract(fallbackParams);
+
+            const nameHash = getNameHash(name);
+            
+            const result = await readContract(config, {
+                address: domainInfo.resolver,
+                abi: PNSResolverABI,
+                functionName: 'getAddr',
+                args: [nameHash, BigInt(coinType)],
+            });
+
+            return result as string;
+        } catch (error) {
+            console.error('Error fetching address record:', error);
+            return '';
+        }
+    };
+
+    /**
+     * Get domains owned by an address
+     */
+    const getOwnedDomains = async (ownerAddress: string): Promise<DomainInfo[]> => {
+        // This will be implemented by reading from the backend API
+        // since we need indexed data for efficient querying
+        try {
+            const response = await fetch(`/api/domains/${ownerAddress}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch owned domains');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching owned domains:', error);
+            return [];
         }
     };
 
     return {
-        // Contract addresses
-        contracts,
-
-        // Write operations
-        registerDomain,
-        setTextRecord,
-        setAddressRecord,
-        renewDomain,
-
-        // Read operations - DIRECT FROM CONTRACTS
-        checkAvailability,
-        getDomainPrice,
-        getDomainOwner,
-        getDomainExpiration,
-        getDomainResolver,
-        getTextRecord,
-
-        // Transaction state
-        hash,
+        // State
         isPending,
         isConfirming,
         isConfirmed,
+        hash,
         writeError,
-
-        // Utilities
+        
+        // Contract addresses
+        contracts,
+        
+        // Helper functions
         getNameHash,
+        
+        // Read functions
+        getDomainInfo,
+        checkAvailability,
+        getDomainPrice,
+        getTextRecord,
+        getAddressRecord,
+        getOwnedDomains,
+        
+        // Write functions
+        registerDomain,
+        renewDomain,
+        setTextRecord,
+        setAddressRecord,
     };
 }
+

@@ -1,23 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 import { PNSRegistry } from "./PNSRegistry.sol";
 import { PNSRegistrar } from "./PNSRegistrar.sol";
 import { PNSResolver } from "./PNSResolver.sol";
 import { PNSPriceOracle } from "./PNSPriceOracle.sol";
+import { PNSUtils } from "./libs/PNSUtils.sol";
 
 /**
  * @title PNSController
  * @dev User-facing interface for PNS operations
  * Provides simplified registration flow, batch operations, and emergency functions
  */
-contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGuard {
-    constructor() Ownable(msg.sender) {}
+contract PNSController is 
+    Initializable,
+    AccessControlUpgradeable, 
+    UUPSUpgradeable, 
+    ReentrancyGuard,
+    PausableUpgradeable
+{
+    /// @notice Admin role for the controller
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     /// @notice Reference to registry contract
     PNSRegistry public registry;
@@ -27,9 +36,6 @@ contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGua
 
     /// @notice Reference to default resolver contract
     PNSResolver public defaultResolver;
-
-    /// @notice Emergency pause flag
-    bool public paused = false;
 
     /// @notice Reference to price oracle
     PNSPriceOracle public priceOracle;
@@ -65,11 +71,7 @@ contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGua
 
     // ============ Modifiers ============
 
-    /// @notice Only when not paused
-    modifier whenNotPaused() {
-        require(!paused, "Controller: Paused");
-        _;
-    }
+    // Note: Using PausableUpgradeable's whenNotPaused modifier
 
     // ============ Initialization ============
 
@@ -93,6 +95,13 @@ contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGua
         require(_feeRecipient != address(0), "Controller: Invalid fee recipient");
         require(_priceOracle != address(0), "Controller: Invalid price oracle");
 
+        __AccessControl_init();
+        __Pausable_init();
+
+        // Set the deployer as admin
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ADMIN_ROLE, msg.sender);
+
         registry = PNSRegistry(_registry);
         registrar = PNSRegistrar(_registrar);
         defaultResolver = PNSResolver(_resolver);
@@ -106,7 +115,7 @@ contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGua
      * @dev Sets the default resolver
      * @param _resolver New resolver address
      */
-    function setDefaultResolver(address _resolver) external onlyOwner {
+    function setDefaultResolver(address _resolver) external onlyRole(ADMIN_ROLE) {
         require(_resolver != address(0), "Controller: Invalid resolver");
         defaultResolver = PNSResolver(_resolver);
         emit DefaultResolverUpdated(_resolver);
@@ -116,7 +125,7 @@ contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGua
      * @dev Sets registration fee in basis points
      * @param bps Basis points (e.g., 50 = 0.5%)
      */
-    function setRegistrationFeeBps(uint256 bps) external onlyOwner {
+    function setRegistrationFeeBps(uint256 bps) external onlyRole(ADMIN_ROLE) {
         require(bps <= 10000, "Controller: Invalid BPS");
         registrationFeeBps = bps;
     }
@@ -125,7 +134,7 @@ contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGua
      * @dev Sets the fee recipient
      * @param _recipient New recipient address
      */
-    function setFeeRecipient(address _recipient) external onlyOwner {
+    function setFeeRecipient(address _recipient) external onlyRole(ADMIN_ROLE) {
         require(_recipient != address(0), "Controller: Invalid recipient");
         feeRecipient = _recipient;
     }
@@ -133,7 +142,7 @@ contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGua
     /**
      * @dev Sets the price oracle
      */
-    function setPriceOracle(address _oracle) external onlyOwner {
+    function setPriceOracle(address _oracle) external onlyRole(ADMIN_ROLE) {
         require(_oracle != address(0), "Controller: Invalid oracle");
         priceOracle = PNSPriceOracle(_oracle);
     }
@@ -142,16 +151,20 @@ contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGua
      * @dev Sets rate limit
      * @param limit Max registrations per day per user
      */
-    function setRateLimit(uint256 limit) external onlyOwner {
+    function setRateLimit(uint256 limit) external onlyRole(ADMIN_ROLE) {
         rateLimitPerDay = limit;
     }
 
     /**
-     * @dev Toggles pause state
+     * @dev Sets pause state
      * @param _paused New pause state
      */
-    function setPaused(bool _paused) external onlyOwner {
-        paused = _paused;
+    function setPaused(bool _paused) external onlyRole(ADMIN_ROLE) {
+        if (_paused) {
+            _pause();
+        } else {
+            _unpause();
+        }
         emit PauseStateChanged(_paused);
     }
 
@@ -388,27 +401,27 @@ contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGua
     /**
      * @dev Emergency withdrawal by owner
      */
-    function emergencyWithdraw() external onlyOwner nonReentrant {
+    function emergencyWithdraw() external onlyRole(ADMIN_ROLE) nonReentrant {
         uint256 balance = address(this).balance;
         require(balance > 0, "Controller: No funds");
 
-        (bool success,) = owner().call{value: balance}("");
+        (bool success,) = msg.sender.call{value: balance}("");
         require(success, "Controller: Withdrawal failed");
 
-        emit EmergencyWithdrawal(owner(), balance);
+        emit EmergencyWithdrawal(msg.sender, balance);
     }
 
     /**
      * @dev Emergency withdrawal of specific amount
      * @param amount Amount to withdraw
      */
-    function emergencyWithdrawAmount(uint256 amount) external onlyOwner nonReentrant {
+    function emergencyWithdrawAmount(uint256 amount) external onlyRole(ADMIN_ROLE) nonReentrant {
         require(amount <= address(this).balance, "Controller: Insufficient balance");
 
-        (bool success,) = owner().call{value: amount}("");
+        (bool success,) = msg.sender.call{value: amount}("");
         require(success, "Controller: Withdrawal failed");
 
-        emit EmergencyWithdrawal(owner(), amount);
+        emit EmergencyWithdrawal(msg.sender, amount);
     }
 
     // ============ Internal Functions ============
@@ -447,5 +460,5 @@ contract PNSController is Ownable, Initializable, UUPSUpgradeable, ReentrancyGua
      * @dev Authorizes upgrade to new implementation
      * @param newImplementation Address of new implementation
      */
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(ADMIN_ROLE) {}
 }

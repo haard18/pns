@@ -1,53 +1,56 @@
-# PNS (Predictify Name Service) - Multi-Chain Implementation
+# PNS (Polygon Name Service) - Production Ready
 
-A **complete, production-ready domain name service** spanning **Polygon (EVM)** and **Solana blockchains**, with unified APIs, comprehensive backend infrastructure, and full documentation.
+> A decentralized domain name service on Polygon with event-driven architecture
+
+## 🏗️ Architecture
+
+```
+Frontend (React + Vite)
+    ↓ Direct Contract Calls (wagmi/viem)
+Smart Contracts (Polygon)
+    ↓ Event Emissions  
+Backend (Event Indexer + API)
+    ↓ Stores indexed data
+Database (PostgreSQL)
+```
+
+### Key Design Principles:
+- **Frontend** → Direct contract interaction for ALL operations (register, renew, resolve)
+- **Backend** → Event-driven indexing ONLY + transaction history API
+- **No Backend Writes** → All blockchain operations happen client-side
+- **Scalable** → Backend can be horizontally scaled for indexing efficiency
 
 ## 🚀 Quick Start
 
-### For Backend Development
+### Prerequisites
+- Node.js 18+
+- pnpm
+- Foundry/Forge
+- PostgreSQL (production)
+
+### Setup
 ```bash
-cd backend
-npm install
-npm run build
-npm run dev
-# API available at http://localhost:3000
+# Clone and setup
+git clone <repo>
+cd nameservice
+
+# Run automated setup
+chmod +x setup.sh
+./setup.sh
 ```
 
-### For Solana Program Development
+### Development
 ```bash
-cd solana
-anchor build
-anchor test
-anchor deploy --provider.cluster devnet
+# Start all services
+./start-dev.sh
+
+# Access applications
+Frontend: http://localhost:3000
+Backend:  http://localhost:3001
 ```
 
-### For Smart Contract Deployment
-```bash
-cd contracts
-./deploy.sh  # Deploys to local Anvil
-```
-
----
-
-## 📦 What's Included
-
-### 1️⃣ Polygon Smart Contracts
-Complete EVM-based name service with 6 contracts:
-- **PNSRegistry** - Domain ownership tracking
-- **PNSRegistrar** - Registration management
-- **PNSResolver** - Address resolution
-- **PNSController** - Access control layer
-- **PNSPriceOracle** - Dynamic pricing
-- **PNSDomainNFT** - NFT minting
-
-**Status**: ✅ Deployed to Anvil | ✅ 22/22 tests passing
-
-### 2️⃣ Solana Anchor Program
-Complete Anchor program with optimized PDAs:
-- **Instructions**: initialize, registerDomain, renewDomain, transferDomain, setResolver
-- **PDAs**: Registry (global), DomainAccount (per domain)
-- **Security**: Full owner verification, expiration enforcement
-- **Events**: DomainRegistered, DomainRenewed, DomainTransferred
+### Production
+See [PRODUCTION_GUIDE.md](./PRODUCTION_GUIDE.md) for complete deployment instructions.
 
 **Status**: ✅ Complete | ✅ Ready for Devnet | ✅ TypeScript client included
 

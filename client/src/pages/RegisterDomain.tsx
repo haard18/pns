@@ -130,18 +130,18 @@ const RegisterDomain = () => {
         try {
             for (const domain of confirmData.domains) {
                 const cleanDomain = domain.name.replace(/\.poly$/i, '');
-            console.log('[RegisterDomain] calling register for', cleanDomain, 'expected price:', domain.price, 'years:', years);
-            const result = await register(cleanDomain, address!, years);
-            console.log('[RegisterDomain] register result for', cleanDomain, result);
+                console.log('[RegisterDomain] calling register for', cleanDomain, 'expected price:', domain.price, 'years:', years);
+                const result = await register(cleanDomain, address!, years);
+                console.log('[RegisterDomain] register result for', cleanDomain, result);
 
-                if (result && result.txHash) {
+                if (result && result.success && result.txHash) {
                     await recordTransaction({
                         txHash: result.txHash,
                         type: 'register',
-                        domainName: result.name,
+                        domainName: cleanDomain,
                         owner: address!,
                         chainId: 137,
-                        timestamp: result.registeredAt,
+                        timestamp: Date.now(),
                         metadata: {
                             duration: years,
                             price: domain.price,

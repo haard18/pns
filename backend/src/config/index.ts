@@ -8,8 +8,8 @@ export class Config {
   static readonly NODE_ENV = process.env.NODE_ENV || 'development';
 
   static readonly polygon: PolygonConfig = {
-    rpcUrl: process.env.POLYGON_RPC_URL || 'http://localhost:8545',
-    chainId: parseInt(process.env.POLYGON_CHAIN_ID || '31337', 10),
+    rpcUrl: process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com',
+    chainId: parseInt(process.env.POLYGON_CHAIN_ID || '137', 10),
     contracts: {
       registry: process.env.POLYGON_REGISTRY_ADDRESS || '',
       registrar: process.env.POLYGON_REGISTRAR_ADDRESS || '',
@@ -20,12 +20,26 @@ export class Config {
     }
   };
 
-  // Solana config commented out - can be re-enabled later if needed
-  // static readonly solana: SolanaConfig = {
-  //   rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com',
-  //   programId: process.env.SOLANA_PROGRAM_ID || '',
-  //   payerKeypair: process.env.SOLANA_PAYER_KEYPAIR || ''
-  // };
+  // Shortcut for contracts (used by indexer)
+  static readonly contracts = {
+    registry: process.env.POLYGON_REGISTRY_ADDRESS || '',
+    registrar: process.env.POLYGON_REGISTRAR_ADDRESS || '',
+    controller: process.env.POLYGON_CONTROLLER_ADDRESS || '',
+    resolver: process.env.POLYGON_RESOLVER_ADDRESS || '',
+    priceOracle: process.env.POLYGON_PRICE_ORACLE_ADDRESS || '',
+    domainNFT: process.env.POLYGON_NFT_ADDRESS || '',
+    // Block number when contracts were deployed (for initial sync)
+    // Polygon Mainnet deployment: December 2, 2025 - block ~79790269
+    deploymentBlock: parseInt(process.env.DEPLOYMENT_BLOCK || '79790269', 10)
+  };
+
+  // Indexer configuration
+  static readonly indexer = {
+    scanIntervalMs: parseInt(process.env.INDEXER_SCAN_INTERVAL_MS || '30000', 10), // 30 seconds
+    batchSize: parseInt(process.env.INDEXER_BATCH_SIZE || '1000', 10),
+    maxRetries: parseInt(process.env.INDEXER_MAX_RETRIES || '3', 10),
+    enabled: process.env.INDEXER_ENABLED !== 'false' // Enabled by default
+  };
 
   static readonly database = {
     url: process.env.DATABASE_URL || 'postgresql://localhost:5432/pns'
@@ -44,6 +58,7 @@ export class Config {
   static validate(): void {
     const required = [
       'POLYGON_RPC_URL',
+      'POLYGON_REGISTRY_ADDRESS',
       'POLYGON_CONTROLLER_ADDRESS'
     ];
 

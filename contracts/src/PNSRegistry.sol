@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import { PNSUtils } from "./libs/PNSUtils.sol";
 
 /**
  * @title PNSRegistry
  * @dev Central registry contract for Polygon Naming Service
  * Manages ownership of domains/names, name-to-address mappings, and subdomains
  */
-contract PNSRegistry is AccessControl, Initializable, UUPSUpgradeable, ReentrancyGuard {
+contract PNSRegistry is 
+    Initializable, 
+    AccessControlUpgradeable, 
+    UUPSUpgradeable, 
+    ReentrancyGuard,
+    PausableUpgradeable
+{
     /// @notice Role for admin operations
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     /// @notice Role for registrar contracts
@@ -130,8 +138,11 @@ contract PNSRegistry is AccessControl, Initializable, UUPSUpgradeable, Reentranc
     function initialize(address admin) external initializer {
         require(admin != address(0), "PNS: Invalid admin address");
 
+        __AccessControl_init();
+        __Pausable_init();
+
         owner = admin;
-        baseTld = keccak256(abi.encodePacked(".poly"));
+        baseTld = PNSUtils.BASE_TLD_HASH;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
@@ -444,6 +455,22 @@ contract PNSRegistry is AccessControl, Initializable, UUPSUpgradeable, Reentranc
      */
     function getRecordVersion(bytes32 nameHash, bytes32 keyHash) external view returns (uint64) {
         return recordVersions[nameHash][keyHash];
+    }
+
+    // ============ Pause/Unpause Functions ============
+
+    /**
+     * @dev Pauses the contract (emergency stop)
+     */
+    function pause() external onlyRole(ADMIN_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @dev Unpauses the contract
+     */
+    function unpause() external onlyRole(ADMIN_ROLE) {
+        _unpause();
     }
 
     // ============ Upgrade Authorization ============

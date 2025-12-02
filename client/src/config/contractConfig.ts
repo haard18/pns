@@ -30,14 +30,14 @@ export const contractAddresses: Record<number, ContractAddresses> = {
     priceOracle: '0x0000000000000000000000000000000000000000' as `0x${string}`,
     nft: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   },
-  // Polygon Mainnet
+  // Polygon Mainnet (Deployed December 2, 2025)
   137: {
-    registry: '0x08CA1CB2ebc4AB7d709fCe5Da9f185D950E21D38' as `0x${string}`,
-    controller: '0x72673ECA8BC86c6fe65221Bf90ea68A1A529A2a7' as `0x${string}`,
-    registrar: '0x1E4461AB41652Ac9d84FA215c4AD443857e10c95' as `0x${string}`,
-    resolver: '0x4f15efcE62cE45c402408015A34CD7c3a43fAC07' as `0x${string}`,
-    priceOracle: '0xBF7E19638ddd7c7D312aE06a387d5F838c4a8C73' as `0x${string}`,
-    nft: '0x889F312473288c6F8D3f57F563D0bcA7D8789Acf' as `0x${string}`,
+    registry: '0xD913d5976030a05349a0B393063a052130234303' as `0x${string}`,
+    controller: '0xced4F08241EC1Bb6B95f85028911043903299538' as `0x${string}`,
+    registrar: '0x7e3a227Fb9abE743692Cd4beb8Db3A210C700B3a' as `0x${string}`,
+    resolver: '0x6Ed01A870D262a054e2C5E7a7161cF8F2EA2f8d7' as `0x${string}`,
+    priceOracle: '0xE810156cf63d572dB9d31F277DCC05AA60aD8C22' as `0x${string}`,
+    nft: '0xf7e61Ad13C8a1593e57C161DD863CDcD0d01326E' as `0x${string}`,
   },
 };
 
@@ -55,6 +55,16 @@ export const PNSControllerABI = [
       { "internalType": "uint256", "name": "duration", "type": "uint256" }
     ],
     "name": "registerDomain",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "string", "name": "name", "type": "string" },
+      { "internalType": "uint256", "name": "duration", "type": "uint256" }
+    ],
+    "name": "renewDomain",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
@@ -164,6 +174,23 @@ export const PNSResolverABI = [
     ],
     "name": "getAddr",
     "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
+
+// PNSRegistryABI - Registry contract for domain records
+export const PNSRegistryABI = [
+  {
+    "inputs": [
+      { "internalType": "bytes32", "name": "nameHash", "type": "bytes32" }
+    ],
+    "name": "records",
+    "outputs": [
+      { "internalType": "address", "name": "owner", "type": "address" },
+      { "internalType": "address", "name": "resolver", "type": "address" },
+      { "internalType": "uint64", "name": "expiration", "type": "uint64" }
+    ],
     "stateMutability": "view",
     "type": "function"
   }
