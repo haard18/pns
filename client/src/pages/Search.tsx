@@ -4,7 +4,7 @@ import "../App.css";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../components/Navbar";
 import { useDomain } from "../hooks/useDomain";
-import { formatDomainName, formatNumber } from "../services/pnsApi";
+import { formatDomainName } from "../services/pnsApi";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 16 },
@@ -156,7 +156,7 @@ const Search: React.FC = () => {
       >
         {" "}
         <motion.h1
-          className="text-4xl mb-8 tracking-wider"
+          className={`text-4xl mb-8 ${searchResults ? "text-[var(--text-light)]" : "text-[var(--text-soft)]"} tracking-wider`}
           variants={fadeInUp}
           initial="hidden"
           animate="show"
@@ -262,14 +262,7 @@ const Search: React.FC = () => {
                             : "Unavailable"}
                         </span>
 
-                        {searchResults.available && (
-                          <p className="text-xs text-gray-400 mt-1">
-                            ≈ $
-                            {formatNumber(
-                              (parseFloat(searchResults.price) * 0.8).toFixed(2)
-                            )}
-                          </p>
-                        )}
+
                       </div>
                     </div>
                   </div>

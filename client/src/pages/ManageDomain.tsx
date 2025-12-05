@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
@@ -9,7 +9,7 @@ import { formatExpiration } from "../lib/namehash";
 const ManageDomain = () => {
   const { domainName } = useParams<{ domainName: string }>();
   const navigate = useNavigate();
-  const { renew, getDomainDetails, setTextRecord, getTextRecord, domain } = useDomain();
+  const { renew, getDomainDetails, setTextRecord, getTextRecord, transferDomain, domain } = useDomain();
   const { address } = useAccount();
   
   const [activeTab, setActiveTab] = useState<"records" | "subdomains" | "permissions">("records");
@@ -19,22 +19,37 @@ const ManageDomain = () => {
   const [recordError, setRecordError] = useState<string | null>(null);
   const [recordSuccess, setRecordSuccess] = useState<string | null>(null);
 
+  // Transfer state
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferAddress, setTransferAddress] = useState("");
+  const [transferring, setTransferring] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
+
   // Records state - loaded from contract
   const [records, setRecords] = useState<{ key: string; value: string; type: string }[]>([]);
   const [newRecord, setNewRecord] = useState({ key: "", value: "" });
   const [isAddingRecord, setIsAddingRecord] = useState(false);
   const [loadingRecords, setLoadingRecords] = useState(true);
+  
+  // Ref to track if records have been loaded for current domain
+  const recordsLoadedRef = useRef<string | null>(null);
+  // Store functions in refs to avoid dependency issues causing infinite loops
+  const getTextRecordRef = useRef(getTextRecord);
+  getTextRecordRef.current = getTextRecord;
+  const getDomainDetailsRef = useRef(getDomainDetails);
+  getDomainDetailsRef.current = getDomainDetails;
+  
+  // Track if domain details have been loaded
+  const domainLoadedRef = useRef<string | null>(null);
 
-  // Load domain details and existing records
+  // Load domain details on mount or when domain name changes
   useEffect(() => {
-    const loadDomain = async () => {
-      if (domainName) {
-        await getDomainDetails(domainName);
-        await loadExistingRecords();
-      }
-    };
-    loadDomain();
-  }, [domainName, getDomainDetails]);
+    if (!domainName) return;
+    if (domainLoadedRef.current === domainName) return;
+    
+    domainLoadedRef.current = domainName;
+    getDomainDetailsRef.current(domainName);
+  }, [domainName]);
 
   // Update domainDetails when domain changes
   useEffect(() => {
@@ -47,44 +62,53 @@ const ManageDomain = () => {
   }, [domain]);
 
   // Load existing text records from the resolver
-  const loadExistingRecords = async () => {
+  useEffect(() => {
     if (!domainName) return;
-    setLoadingRecords(true);
     
-    try {
-      // Common record keys to check
-      const commonKeys = [
-        { key: 'url', label: 'Website' },
-        { key: 'email', label: 'Email' },
-        { key: 'avatar', label: 'Avatar' },
-        { key: 'description', label: 'Description' },
-        { key: 'com.twitter', label: 'Twitter' },
-        { key: 'com.github', label: 'GitHub' },
-        { key: 'com.discord', label: 'Discord' },
-        { key: 'org.telegram', label: 'Telegram' },
-        { key: 'contentHash', label: 'IPFS' },
-      ];
+    // Skip if already loaded for this domain
+    if (recordsLoadedRef.current === domainName) return;
+    
+    const loadExistingRecords = async () => {
+      setLoadingRecords(true);
+      recordsLoadedRef.current = domainName;
       
-      const loadedRecords: { key: string; value: string; type: string }[] = [];
-      
-      for (const { key, label } of commonKeys) {
-        try {
-          const value = await getTextRecord(domainName, key);
-          if (value) {
-            loadedRecords.push({ key: label, value, type: 'text' });
+      try {
+        // Common record keys to check
+        const commonKeys = [
+          { key: 'url', label: 'Website' },
+          { key: 'email', label: 'Email' },
+          { key: 'avatar', label: 'Avatar' },
+          { key: 'description', label: 'Description' },
+          { key: 'com.twitter', label: 'Twitter' },
+          { key: 'com.github', label: 'GitHub' },
+          { key: 'com.discord', label: 'Discord' },
+          { key: 'org.telegram', label: 'Telegram' },
+          { key: 'contentHash', label: 'IPFS' },
+        ];
+        
+        const loadedRecords: { key: string; value: string; type: string }[] = [];
+        
+        for (const { key, label } of commonKeys) {
+          try {
+            const value = await getTextRecordRef.current(domainName, key);
+            if (value) {
+              loadedRecords.push({ key: label, value, type: 'text' });
+            }
+          } catch (err) {
+            // Record doesn't exist, skip
           }
-        } catch (err) {
-          // Record doesn't exist, skip
         }
+        
+        setRecords(loadedRecords);
+      } catch (err) {
+        console.error('Error loading records:', err);
+      } finally {
+        setLoadingRecords(false);
       }
-      
-      setRecords(loadedRecords);
-    } catch (err) {
-      console.error('Error loading records:', err);
-    } finally {
-      setLoadingRecords(false);
-    }
-  };
+    };
+
+    loadExistingRecords();
+  }, [domainName]);
 
   // Map display label to actual record key
   const getRecordKey = (displayKey: string): string => {
@@ -167,6 +191,33 @@ const ManageDomain = () => {
     }
   };
 
+  const handleTransferDomain = async () => {
+    if (!domainName || !transferAddress) return;
+    
+    // Validate address format
+    if (!/^0x[a-fA-F0-9]{40}$/.test(transferAddress)) {
+      setTransferError('Invalid Ethereum address format');
+      return;
+    }
+
+    setTransferring(true);
+    setTransferError(null);
+
+    try {
+      await transferDomain(domainName, transferAddress);
+      alert("Domain transfer transaction submitted! The domain will be transferred once confirmed.");
+      setShowTransferModal(false);
+      setTransferAddress("");
+      // Refresh domain details
+      await getDomainDetails(domainName);
+    } catch (err: any) {
+      console.error("Transfer failed:", err);
+      setTransferError(err.message || 'Transfer failed');
+    } finally {
+      setTransferring(false);
+    }
+  };
+
   return (
     <div className="min-h-screen overflow-hidden" style={{ background: "var(--primary-gradient)" }}>
       <Navbar />
@@ -189,9 +240,12 @@ const ManageDomain = () => {
           </button>
           <h1 className="text-4xl text-white font-bold mb-2">{domainName}</h1>
           <div className="flex items-center gap-4 text-[var(--text-soft)]">
-            <span>Owner: {address ? `${address.slice(0, 8)}...${address.slice(-4)}` : 'Unknown'}</span>
+            <span>Owner: {domainDetails?.owner ? `${domainDetails.owner.slice(0, 8)}...${domainDetails.owner.slice(-4)}` : 'Loading...'}</span>
             <span>•</span>
-            <span>Expires: {domainDetails?.expirationDate || 'Dec 25, 2026'}</span>
+            <span>Expires: {domainDetails?.expirationDate || 'Loading...'}</span>
+            {domainDetails?.owner && address && domainDetails.owner.toLowerCase() !== address.toLowerCase() && (
+              <span className="text-yellow-500 text-sm">(You are not the owner)</span>
+            )}
           </div>
         </motion.div>
 
@@ -210,7 +264,11 @@ const ManageDomain = () => {
             <div className="text-white text-lg font-semibold mb-2 group-hover:text-[#2349E2] transition">{renewing ? 'Renewing...' : 'Renew Domain'}</div>
             <div className="text-[var(--text-soft)] text-sm">Extend your domain ownership</div>
           </button>
-          <button className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-6 hover:border-[#2349E2] transition text-left group">
+          <button 
+            onClick={() => setShowTransferModal(true)}
+            disabled={!domainDetails?.owner || domainDetails?.owner.toLowerCase() !== address?.toLowerCase()}
+            className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-6 hover:border-[#2349E2] transition text-left group disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <div className="text-white text-lg font-semibold mb-2 group-hover:text-[#2349E2] transition">Transfer Domain</div>
             <div className="text-[var(--text-soft)] text-sm">Transfer to another wallet</div>
           </button>
@@ -452,6 +510,49 @@ const ManageDomain = () => {
           </motion.div>
         )}
       </div>
+
+      {/* Transfer Modal */}
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#1a1a2e] border border-[rgba(255,255,255,0.1)] rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl text-white font-bold mb-4">Transfer Domain</h3>
+            <p className="text-[var(--text-soft)] text-sm mb-4">
+              Transfer <span className="text-white font-medium">{domainName}.poly</span> to another wallet. This action cannot be undone.
+            </p>
+            {transferError && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-4">
+                <p className="text-red-400 text-sm">{transferError}</p>
+              </div>
+            )}
+            <input
+              type="text"
+              placeholder="Recipient address (0x...)"
+              value={transferAddress}
+              onChange={(e) => setTransferAddress(e.target.value)}
+              className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg px-4 py-3 text-white placeholder-[var(--text-soft)] mb-4 focus:outline-none focus:border-[#2349E2]"
+            />
+            <div className="flex gap-3">
+              <button 
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setTransferAddress('');
+                  setTransferError(null);
+                }}
+                className="flex-1 px-4 py-3 border border-[rgba(255,255,255,0.1)] rounded-lg text-white hover:bg-[rgba(255,255,255,0.05)] transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleTransferDomain}
+                disabled={transferring || !transferAddress}
+                className="flex-1 px-4 py-3 bg-[#2349E2] rounded-lg text-white font-medium hover:bg-[#1a3ab8] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {transferring ? 'Transferring...' : 'Transfer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

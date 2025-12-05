@@ -351,7 +351,7 @@ export function useContracts() {
     /**
      * Set text record for a domain
      */
-    const setTextRecord = async (name: string, _key: string, _value: string): Promise<RegistrationResult> => {
+    const setTextRecord = async (name: string, key: string, value: string): Promise<RegistrationResult> => {
         if (!address) {
             return { success: false, error: 'Wallet not connected' };
         }
@@ -359,22 +359,43 @@ export function useContracts() {
         try {
             // Check ownership
             const domainInfo = await getDomainInfo(name);
-            if (domainInfo.owner !== address) {
+            if (domainInfo.owner.toLowerCase() !== address.toLowerCase()) {
                 return { success: false, error: 'You do not own this domain' };
             }
 
-            // const nameHash = getNameHash(name);
+            const nameHash = getNameHash(name);
+            const resolverAddress = contracts.resolver;
 
-            // Set text record via resolver
-            // TODO: Reimplement with writeContractClient for async usage
-            // writeContract({
-            //     address: domainInfo.resolver,
-            //     abi: PNSResolverABI,
-            //     functionName: 'setText',
-            //     args: [nameHash, _key, _value],
-            // });
+            console.log('Setting text record:', {
+                nameHash,
+                key,
+                value,
+                resolver: resolverAddress,
+                owner: address
+            });
 
-            return { success: true, txHash: '0x' as `0x${string}` };
+            // Call setText on the Resolver contract
+            const hash = await writeContractClient(config, {
+                address: resolverAddress,
+                abi: PNSResolverABI,
+                functionName: 'setText',
+                args: [nameHash, key, value],
+            });
+
+            console.log('Text record tx submitted:', hash);
+
+            // Wait for confirmation
+            const receipt = await waitForTransactionReceipt(config, {
+                hash,
+                confirmations: 1,
+            });
+
+            if (receipt.status === 'success') {
+                console.log('Text record set successfully');
+                return { success: true, txHash: hash };
+            } else {
+                return { success: false, error: 'Transaction failed' };
+            }
         } catch (error: any) {
             console.error('Set text record error:', error);
             return { success: false, error: error.message || 'Failed to set text record' };
@@ -384,7 +405,7 @@ export function useContracts() {
     /**
      * Set address record for a domain
      */
-    const setAddressRecord = async (name: string, _coinType: number, _addressValue: string): Promise<RegistrationResult> => {
+    const setAddressRecord = async (name: string, coinType: number, addressValue: string): Promise<RegistrationResult> => {
         if (!address) {
             return { success: false, error: 'Wallet not connected' };
         }
@@ -392,22 +413,43 @@ export function useContracts() {
         try {
             // Check ownership
             const domainInfo = await getDomainInfo(name);
-            if (domainInfo.owner !== address) {
+            if (domainInfo.owner.toLowerCase() !== address.toLowerCase()) {
                 return { success: false, error: 'You do not own this domain' };
             }
 
-            // const nameHash = getNameHash(name);
+            const nameHash = getNameHash(name);
+            const resolverAddress = contracts.resolver;
 
-            // Set address record via resolver
-            // TODO: Reimplement with writeContractClient for async usage
-            // writeContract({
-            //     address: domainInfo.resolver,
-            //     abi: PNSResolverABI,
-            //     functionName: 'setAddr',
-            //     args: [nameHash, BigInt(_coinType), _addressValue as `0x${string}`],
-            // });
+            console.log('Setting address record:', {
+                nameHash,
+                coinType,
+                addressValue,
+                resolver: resolverAddress,
+                owner: address
+            });
 
-            return { success: true, txHash: '0x' as `0x${string}` };
+            // Call setAddr on the Resolver contract
+            const hash = await writeContractClient(config, {
+                address: resolverAddress,
+                abi: PNSResolverABI,
+                functionName: 'setAddr',
+                args: [nameHash, BigInt(coinType), addressValue as `0x${string}`],
+            });
+
+            console.log('Address record tx submitted:', hash);
+
+            // Wait for confirmation
+            const receipt = await waitForTransactionReceipt(config, {
+                hash,
+                confirmations: 1,
+            });
+
+            if (receipt.status === 'success') {
+                console.log('Address record set successfully');
+                return { success: true, txHash: hash };
+            } else {
+                return { success: false, error: 'Transaction failed' };
+            }
         } catch (error: any) {
             console.error('Set address record error:', error);
             return { success: false, error: error.message || 'Failed to set address record' };
@@ -484,6 +526,69 @@ export function useContracts() {
         }
     };
 
+    /**
+     * Transfer domain ownership to a new address
+     */
+    const transferDomain = async (name: string, newOwner: string): Promise<RegistrationResult> => {
+        if (!address) {
+            return { success: false, error: 'Wallet not connected' };
+        }
+
+        try {
+            // Validate new owner address
+            if (!newOwner || !/^0x[a-fA-F0-9]{40}$/.test(newOwner)) {
+                return { success: false, error: 'Invalid recipient address' };
+            }
+
+            // Check ownership
+            const domainInfo = await getDomainInfo(name);
+            if (domainInfo.owner.toLowerCase() !== address.toLowerCase()) {
+                return { success: false, error: 'You do not own this domain' };
+            }
+
+            // Check if domain is expired
+            if (domainInfo.available || domainInfo.expiration < Date.now() / 1000) {
+                return { success: false, error: 'Domain has expired' };
+            }
+
+            // Check if transferring to self
+            if (newOwner.toLowerCase() === address.toLowerCase()) {
+                return { success: false, error: 'Cannot transfer to yourself' };
+            }
+
+            const nameHash = getNameHash(name);
+
+            console.log('[transferDomain] Transferring domain:', name, 'to:', newOwner);
+            console.log('[transferDomain] NameHash:', nameHash);
+            console.log('[transferDomain] Registry:', contracts.registry);
+
+            const transferTxHash = await writeContractClient(config, {
+                address: contracts.registry,
+                abi: PNSRegistryABI,
+                functionName: 'transferName',
+                args: [nameHash, newOwner as `0x${string}`],
+            });
+
+            console.log('[transferDomain] Transfer tx:', transferTxHash);
+
+            // Wait for confirmation
+            const receipt = await waitForTransactionReceipt(config, {
+                hash: transferTxHash,
+                confirmations: 1,
+            });
+
+            if (receipt.status === 'success') {
+                console.log('[transferDomain] Transfer successful');
+                return { success: true, txHash: transferTxHash };
+            } else {
+                return { success: false, error: 'Transaction failed' };
+            }
+        } catch (error: any) {
+            console.error('[transferDomain] Transfer error:', error);
+            return { success: false, error: error.message || 'Transfer failed' };
+        }
+    };
+
     return {
         // Contract addresses
         contracts,
@@ -504,6 +609,7 @@ export function useContracts() {
         renewDomain,
         setTextRecord,
         setAddressRecord,
+        transferDomain,
     };
 }
 

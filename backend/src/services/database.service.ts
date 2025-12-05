@@ -167,11 +167,11 @@ class Database {
   }
 
   /**
-   * Get domains by owner
+   * Get domains by owner (case-insensitive)
    */
   async getDomainsByOwner(owner: string): Promise<any[]> {
     const result = await this.query(
-      'SELECT * FROM domains WHERE owner = $1 ORDER BY name ASC',
+      'SELECT * FROM domains WHERE LOWER(owner) = LOWER($1) ORDER BY name ASC',
       [owner]
     );
     return result.rows;
@@ -322,6 +322,118 @@ class Database {
       update.transactionHash,
       update.nameHash,
     ]);
+  }
+
+  /**
+   * Get all domains (paginated)
+   */
+  async getAllDomains(page: number = 1, limit: number = 100): Promise<{
+    domains: any[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const countResult = await this.query('SELECT COUNT(*) as count FROM domains');
+    const total = parseInt(countResult.rows[0].count);
+
+    const offset = (page - 1) * limit;
+    const result = await this.query(
+      'SELECT * FROM domains ORDER BY updated_at DESC LIMIT $1 OFFSET $2',
+      [limit, offset]
+    );
+
+    return {
+      domains: result.rows,
+      total,
+      page,
+      limit,
+    };
+  }
+
+  /**
+   * Search domains by name pattern
+   */
+  async searchDomains(query: string, limit: number = 50): Promise<any[]> {
+    const searchPattern = `%${query}%`;
+    const result = await this.query(
+      'SELECT * FROM domains WHERE name ILIKE $1 ORDER BY name ASC LIMIT $2',
+      [searchPattern, limit]
+    );
+    return result.rows;
+  }
+
+  /**
+   * Get expired domains
+   */
+  async getExpiredDomains(page: number = 1, limit: number = 100): Promise<any[]> {
+    const now = Math.floor(Date.now() / 1000);
+    const offset = (page - 1) * limit;
+    const result = await this.query(
+      'SELECT * FROM domains WHERE expiration <= $1 ORDER BY expiration ASC LIMIT $2 OFFSET $3',
+      [now, limit, offset]
+    );
+    return result.rows;
+  }
+
+  /**
+   * Get domains expiring soon
+   */
+  async getExpiringDomains(days: number = 30, page: number = 1, limit: number = 100): Promise<any[]> {
+    const now = Math.floor(Date.now() / 1000);
+    const futureTime = now + (days * 24 * 60 * 60);
+    const offset = (page - 1) * limit;
+    const result = await this.query(
+      'SELECT * FROM domains WHERE expiration > $1 AND expiration <= $2 ORDER BY expiration ASC LIMIT $3 OFFSET $4',
+      [now, futureTime, limit, offset]
+    );
+    return result.rows;
+  }
+
+  /**
+   * Get domain statistics
+   */
+  async getStatistics(): Promise<{
+    totalDomains: number;
+    registrationsToday: number;
+  }> {
+    const domainsResult = await this.query('SELECT COUNT(*) as count FROM domains');
+    const totalDomains = parseInt(domainsResult.rows[0].count);
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayResult = await this.query(
+      'SELECT COUNT(*) as count FROM domains WHERE created_at >= $1',
+      [todayStart]
+    );
+    const registrationsToday = parseInt(todayResult.rows[0].count);
+
+    return {
+      totalDomains,
+      registrationsToday,
+    };
+  }
+
+  /**
+   * Get domain by name hash
+   */
+  async getDomainByNameHash(nameHash: string): Promise<any> {
+    const result = await this.query(
+      'SELECT * FROM domains WHERE name_hash = $1',
+      [nameHash]
+    );
+    return result.rows[0] || null;
+  }
+
+  /**
+   * Get domain by name
+   */
+  async getDomainByName(name: string): Promise<any> {
+    const result = await this.query(
+      'SELECT * FROM domains WHERE LOWER(name) = LOWER($1)',
+      [name]
+    );
+    return result.rows[0] || null;
   }
 }
 

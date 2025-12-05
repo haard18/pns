@@ -1,14 +1,8 @@
 import { Request, Response } from 'express';
-import { DomainService } from '../services/domain.service';
+import database from '../services/database.service';
 import logger from '../utils/logger';
 
 export class DomainsController {
-  private domainService: DomainService;
-
-  constructor() {
-    this.domainService = new DomainService();
-  }
-
   /**
    * GET /domains/:address - Get domains owned by an address
    */
@@ -32,11 +26,12 @@ export class DomainsController {
         });
       }
 
-      const domains = await this.domainService.getDomainsByOwner(address);
+      // Query from PostgreSQL database
+      const domains = await database.getDomainsByOwner(address);
 
       // Apply pagination
       const pageNum = parseInt(page as string) || 1;
-      const limitNum = Math.min(parseInt(limit as string) || 50, 100); // Max 100 per page
+      const limitNum = Math.min(parseInt(limit as string) || 50, 100);
       const startIndex = (pageNum - 1) * limitNum;
       const endIndex = startIndex + limitNum;
 
@@ -85,9 +80,9 @@ export class DomainsController {
 
       // Check if it's a hash (starts with 0x and 66 characters) or name
       if (nameOrHash.startsWith('0x') && nameOrHash.length === 66) {
-        domain = await this.domainService.getDomainByNameHash(nameOrHash);
+        domain = await database.getDomainByNameHash(nameOrHash);
       } else {
-        domain = await this.domainService.getDomainByName(nameOrHash);
+        domain = await database.getDomainByName(nameOrHash);
       }
 
       if (!domain) {
@@ -134,7 +129,9 @@ export class DomainsController {
       }
 
       const limitNum = Math.min(parseInt(limit as string) || 50, 100);
-      const domains = await this.domainService.searchDomains(q, limitNum);
+      const domains = await database.searchDomains(q, limitNum);
+
+      logger.info('Domain search performed', { query: q, results: domains.length });
 
       return res.json({
         success: true,
@@ -144,8 +141,6 @@ export class DomainsController {
           total: domains.length
         }
       });
-
-      logger.info('Domain search performed', { query: q, results: domains.length });
     } catch (error) {
       logger.error('Error searching domains:', error);
       return res.status(500).json({
@@ -165,26 +160,17 @@ export class DomainsController {
       const pageNum = parseInt(page as string) || 1;
       const limitNum = Math.min(parseInt(limit as string) || 50, 100);
 
-      const expiringDomains = await this.domainService.getExpiringDomains(daysNum);
-
-      // Apply pagination
-      const startIndex = (pageNum - 1) * limitNum;
-      const endIndex = startIndex + limitNum;
-      const paginatedDomains = expiringDomains.slice(startIndex, endIndex);
+      const expiringDomains = await database.getExpiringDomains(daysNum, pageNum, limitNum);
 
       return res.json({
         success: true,
         data: {
-          domains: paginatedDomains,
-          total: expiringDomains.length,
+          domains: expiringDomains,
           page: pageNum,
           limit: limitNum,
-          hasMore: endIndex < expiringDomains.length,
           daysToExpiry: daysNum
         }
       });
-
-      logger.info('Expiring domains fetched', { days: daysNum, total: expiringDomains.length });
     } catch (error) {
       logger.error('Error fetching expiring domains:', error);
       return res.status(500).json({
@@ -203,25 +189,16 @@ export class DomainsController {
       const pageNum = parseInt(page as string) || 1;
       const limitNum = Math.min(parseInt(limit as string) || 50, 100);
 
-      const expiredDomains = await this.domainService.getExpiredDomains();
-
-      // Apply pagination
-      const startIndex = (pageNum - 1) * limitNum;
-      const endIndex = startIndex + limitNum;
-      const paginatedDomains = expiredDomains.slice(startIndex, endIndex);
+      const expiredDomains = await database.getExpiredDomains(pageNum, limitNum);
 
       return res.json({
         success: true,
         data: {
-          domains: paginatedDomains,
-          total: expiredDomains.length,
+          domains: expiredDomains,
           page: pageNum,
-          limit: limitNum,
-          hasMore: endIndex < expiredDomains.length
+          limit: limitNum
         }
       });
-
-      logger.info('Expired domains fetched', { total: expiredDomains.length });
     } catch (error) {
       logger.error('Error fetching expired domains:', error);
       return res.status(500).json({
@@ -236,14 +213,12 @@ export class DomainsController {
    */
   getStatistics = async (_req: Request, res: Response) => {
     try {
-      const stats = await this.domainService.getStatistics();
+      const stats = await database.getStatistics();
 
       return res.json({
         success: true,
         data: stats
       });
-
-      logger.info('Domain statistics fetched', stats);
     } catch (error) {
       logger.error('Error fetching domain statistics:', error);
       return res.status(500).json({
@@ -254,7 +229,7 @@ export class DomainsController {
   };
 
   /**
-   * GET /domains/all - Get all domains (paginated, admin only)
+   * GET /domains/all - Get all domains (paginated)
    */
   getAllDomains = async (req: Request, res: Response) => {
     try {
@@ -262,17 +237,11 @@ export class DomainsController {
       const pageNum = parseInt(page as string) || 1;
       const limitNum = Math.min(parseInt(limit as string) || 50, 100);
 
-      const result = await this.domainService.getAllDomains(pageNum, limitNum);
+      const result = await database.getAllDomains(pageNum, limitNum);
 
       return res.json({
         success: true,
         data: result
-      });
-
-      logger.info('All domains fetched', {
-        page: pageNum,
-        limit: limitNum,
-        total: result.total
       });
     } catch (error) {
       logger.error('Error fetching all domains:', error);
