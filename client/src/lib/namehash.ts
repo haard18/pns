@@ -215,3 +215,40 @@ export function formatMatic(weiAmount: bigint | string | number, decimals: numbe
   
   return result.toFixed(decimals);
 }
+
+/**
+ * Format USDC amount from 6 decimal representation to human-readable string
+ * @param usdcAmount Amount in 6 decimal format (raw USDC units)
+ * @param decimals Number of decimal places to show
+ * @returns Formatted USDC string
+ */
+export function formatUsdc(usdcAmount: bigint | string | number, decimals: number = 2): string {
+  let amount: bigint;
+  
+  if (typeof usdcAmount === 'number') {
+    // If it's already a small number (formatted), handle it
+    if (usdcAmount < 1e4) {
+      return usdcAmount.toFixed(decimals);
+    }
+    amount = BigInt(Math.floor(usdcAmount));
+  } else if (typeof usdcAmount === 'string') {
+    // Handle string that might be decimal or raw units
+    if (usdcAmount.includes('.')) {
+      return parseFloat(usdcAmount).toFixed(decimals);
+    }
+    amount = BigInt(usdcAmount);
+  } else {
+    amount = usdcAmount;
+  }
+  
+  // Convert from 6 decimals to human readable
+  const divisor = BigInt(10 ** 6);
+  const wholePart = amount / divisor;
+  const remainder = amount % divisor;
+  
+  // Convert remainder to decimal
+  const decimalPart = Number(remainder) / Number(divisor);
+  const result = Number(wholePart) + decimalPart;
+  
+  return result.toFixed(decimals);
+}

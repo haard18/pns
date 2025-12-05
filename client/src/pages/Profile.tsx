@@ -1,7 +1,7 @@
 // DomainProfile.jsx
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useWallet } from "../contexts/WalletContext";
+import { useAccount } from 'wagmi';
 import { useDomain } from "../hooks/useDomain";
 import Navbar from "../components/Navbar";
 
@@ -29,7 +29,7 @@ const scaleIn = {
 };
 
 export default function DomainProfile() {
-  const { address } = useWallet();
+  const { address } = useAccount();
   const { getUserDomains, setTextRecord, getTextRecord, setAddressRecord, getAddressRecord } = useDomain();
   
   const [activeTab, setActiveTab] = useState("Domain Settings");

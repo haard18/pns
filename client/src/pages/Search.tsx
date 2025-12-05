@@ -62,7 +62,7 @@ const Search: React.FC = () => {
         const results = {
           name: formatted,
           price: priceData?.price ?? "0",
-          currency: priceData?.currency ?? "MATIC",
+          currency: priceData?.currency ?? "USDC",
           available: true,
         };
         setSearchResults(results);
@@ -70,7 +70,7 @@ const Search: React.FC = () => {
         setSuggestedDomains([]);
       } else {
         // domain unavailable — set results with available=false and generate friendly suggestions
-        setSearchResults({ name: formatted, price: "0", currency: "MATIC", available: false });
+        setSearchResults({ name: formatted, price: "0", currency: "USDC", available: false });
         // lightweight suggestion generator — tweak as needed
         const base = formatted.replace(/\.poly$/i, "");
         const suggestions = [

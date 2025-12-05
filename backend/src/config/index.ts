@@ -36,7 +36,8 @@ export class Config {
   // Indexer configuration
   static readonly indexer = {
     scanIntervalMs: parseInt(process.env.INDEXER_SCAN_INTERVAL_MS || '30000', 10), // 30 seconds
-    batchSize: parseInt(process.env.INDEXER_BATCH_SIZE || '1000', 10),
+    batchSize: parseInt(process.env.INDEXER_BATCH_SIZE || '500', 10), // Blocks per batch
+    logChunkSize: parseInt(process.env.INDEXER_LOG_CHUNK_SIZE || '2000', 10), // eth_getLogs chunk size
     maxRetries: parseInt(process.env.INDEXER_MAX_RETRIES || '3', 10),
     enabled: process.env.INDEXER_ENABLED !== 'false' // Enabled by default
   };
@@ -63,7 +64,7 @@ export class Config {
     ];
 
     const missing = required.filter(key => !process.env[key]);
-    
+
     if (missing.length > 0 && this.NODE_ENV === 'production') {
       throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
     }

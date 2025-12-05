@@ -9,6 +9,22 @@ import { PNSController } from "../src/PNSController.sol";
 import { PNSResolver } from "../src/PNSResolver.sol";
 import { PNSPriceOracle } from "../src/PNSPriceOracle.sol";
 import { PNSDomainNFT } from "../src/PNSDomainNFT.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+// Mock USDC for testing
+contract MockUSDC is ERC20 {
+    constructor() ERC20("Mock USDC", "USDC") {
+        _mint(msg.sender, 1000000 * 10**6); // Mint 1M USDC
+    }
+    
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
+    
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+}
 
 contract DeployAnvil is Script {
     function run() external {
@@ -30,6 +46,10 @@ contract DeployAnvil is Script {
         priceOracle.initialize();
         console.log("PNSPriceOracle deployed at:", address(priceOracle));
         
+        // Deploy Mock USDC for testing
+        MockUSDC usdc = new MockUSDC();
+        console.log("MockUSDC deployed at:", address(usdc));
+        
         // Deploy Resolver
         PNSResolver resolver = new PNSResolver();
         resolver.initialize(deployer, address(registry));
@@ -48,6 +68,7 @@ contract DeployAnvil is Script {
             address(registry),
             address(priceOracle),
             deployer, // treasury
+            address(usdc), // USDC token
             deployer  // admin
         );
         console.log("PNSRegistrar deployed at:", address(registrar));
@@ -59,7 +80,8 @@ contract DeployAnvil is Script {
             address(registrar),
             address(resolver),
             deployer, // fee recipient
-            address(priceOracle)
+            address(priceOracle),
+            address(usdc) // USDC token
         );
         console.log("PNSController deployed at:", address(controller));
         

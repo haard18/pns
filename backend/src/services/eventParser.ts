@@ -229,13 +229,13 @@ export class EventParser {
    */
   private getContractType(address: string, contractAddresses?: { registry?: string; resolver?: string; domainNFT?: string }): 'registry' | 'resolver' | 'nft' | null {
     const addr = address.toLowerCase();
-    
+
     if (contractAddresses) {
       if (contractAddresses.registry && addr === contractAddresses.registry.toLowerCase()) return 'registry';
       if (contractAddresses.resolver && addr === contractAddresses.resolver.toLowerCase()) return 'resolver';
       if (contractAddresses.domainNFT && addr === contractAddresses.domainNFT.toLowerCase()) return 'nft';
     }
-    
+
     // Fallback: try to decode with each interface
     return null;
   }
@@ -247,13 +247,13 @@ export class EventParser {
     try {
       // Add timestamp to all events
       const timestamp = await this.getBlockTimestamp(log.blockNumber);
-      
+
       // Determine contract type
       let contractType = this.getContractType(log.address, contractAddresses);
-      
+
       // Try to decode the log
       let decoded: { eventName: string; args: any } | null = null;
-      
+
       if (contractType) {
         decoded = this.decodeLog(log, contractType);
       } else {
@@ -262,17 +262,17 @@ export class EventParser {
         if (!decoded) decoded = this.decodeLog(log, 'resolver');
         if (!decoded) decoded = this.decodeLog(log, 'nft');
       }
-      
+
       if (!decoded) {
-        logger.warn('Could not decode event', { 
-          address: log.address, 
-          topics: log.topics?.[0]?.substring(0, 10) 
+        logger.warn('Could not decode event', {
+          address: log.address,
+          topics: log.topics?.[0]?.substring(0, 10)
         });
         return null;
       }
 
       let parsedEvent: ParsedEvent | null = null;
-      
+
       switch (decoded.eventName) {
         case 'NameRegistered':
           parsedEvent = this.parseNameRegistered(log, decoded.args);
@@ -314,7 +314,7 @@ export class EventParser {
   /**
    * Get event filters for PNS contracts
    */
-  getEventFilters(contractAddresses: {
+  getEventFilters(_contractAddresses: {
     registry: string;
     resolver: string;
     domainNFT: string;
@@ -344,30 +344,137 @@ export class EventParser {
   }
 
   /**
-   * Fetch logs for a specific contract and block range
+   * Fetch logs for a specific contract and block range with automatic chunking
+   * Handles RPC rate limits and large block ranges by splitting into smaller chunks
    */
   async fetchLogs(
     contractAddress: string,
     topics: string[],
     fromBlock: number,
-    toBlock: number
-  ) {
+    toBlock: number,
+    maxChunkSize: number = 2000,
+    retryCount: number = 0,
+    maxRetries: number = 3
+  ): Promise<any[]> {
+    const blockRange = toBlock - fromBlock + 1;
+
     try {
-      const logs = await this.provider.getLogs({
-        address: contractAddress,
-        topics: [topics],
+      // If range is small enough, fetch directly
+      if (blockRange <= maxChunkSize) {
+        const logs = await this.provider.getLogs({
+          address: contractAddress,
+          topics: [topics],
+          fromBlock,
+          toBlock,
+        });
+
+        logger.debug('Fetched logs chunk', {
+          contractAddress: contractAddress.substring(0, 10) + '...',
+          fromBlock,
+          toBlock,
+          logsCount: logs.length,
+        });
+
+        return logs;
+      }
+
+      // Split into smaller chunks
+      logger.debug('Splitting large block range into chunks', {
         fromBlock,
         toBlock,
+        blockRange,
+        chunkSize: maxChunkSize,
       });
 
-      return logs;
-    } catch (error) {
-      logger.error('Error fetching logs:', {
+      const allLogs: any[] = [];
+      for (let start = fromBlock; start <= toBlock; start += maxChunkSize) {
+        const end = Math.min(start + maxChunkSize - 1, toBlock);
+        const chunkLogs = await this.fetchLogs(
+          contractAddress,
+          topics,
+          start,
+          end,
+          maxChunkSize,
+          0,
+          maxRetries
+        );
+        allLogs.push(...chunkLogs);
+
+        // Small delay between chunks to avoid rate limiting
+        if (end < toBlock) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      return allLogs;
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+
+      // Check if error is due to response size or rate limiting
+      const isRateLimitError =
+        errorMessage.includes('429') ||
+        errorMessage.includes('rate limit') ||
+        errorMessage.includes('too many requests') ||
+        errorMessage.includes('exceeded') ||
+        errorMessage.includes('query returned more than');
+
+      if (isRateLimitError && blockRange > 100) {
+        // Reduce chunk size and retry
+        const newChunkSize = Math.max(100, Math.floor(maxChunkSize / 2));
+        logger.warn('Rate limit or size error, reducing chunk size', {
+          contractAddress: contractAddress.substring(0, 10) + '...',
+          fromBlock,
+          toBlock,
+          oldChunkSize: maxChunkSize,
+          newChunkSize,
+          error: errorMessage.substring(0, 100),
+        });
+
+        return this.fetchLogs(
+          contractAddress,
+          topics,
+          fromBlock,
+          toBlock,
+          newChunkSize,
+          0,
+          maxRetries
+        );
+      }
+
+      // Retry with exponential backoff for transient errors
+      if (retryCount < maxRetries) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        logger.warn('Retrying fetchLogs after error', {
+          contractAddress: contractAddress.substring(0, 10) + '...',
+          fromBlock,
+          toBlock,
+          retryCount: retryCount + 1,
+          maxRetries,
+          delayMs: delay,
+          error: errorMessage.substring(0, 100),
+        });
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        return this.fetchLogs(
+          contractAddress,
+          topics,
+          fromBlock,
+          toBlock,
+          maxChunkSize,
+          retryCount + 1,
+          maxRetries
+        );
+      }
+
+      logger.error('Error fetching logs after retries:', {
         contractAddress,
         fromBlock,
         toBlock,
-        error,
+        retryCount,
+        error: errorMessage,
       });
+
       throw error;
     }
   }

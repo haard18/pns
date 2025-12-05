@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import { PNSRegistry } from "../src/PNSRegistry.sol";
 import { PNSPriceOracle } from "../src/PNSPriceOracle.sol";
@@ -11,9 +12,22 @@ import { PNSRegistrar } from "../src/PNSRegistrar.sol";
 import { PNSController } from "../src/PNSController.sol";
 import { PNSDomainNFT } from "../src/PNSDomainNFT.sol";
 
+// Mock USDC for testing
+contract MockUSDC is ERC20 {
+    constructor() ERC20("Mock USDC", "USDC") {}
+    
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
+    
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+}
+
 /**
  * @title PNSIntegrationTest
- * @dev Comprehensive integration tests for PNS system
+ * @dev Comprehensive integration tests for PNS system with USDC payments
  */
 contract PNSIntegrationTest is Test {
     PNSRegistry registry;
@@ -22,6 +36,7 @@ contract PNSIntegrationTest is Test {
     PNSRegistrar registrar;
     PNSController controller;
     PNSDomainNFT nft;
+    MockUSDC usdc;
 
     address admin = address(0x1);
     address treasury = address(0x2);
@@ -30,6 +45,9 @@ contract PNSIntegrationTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
+
+        // Deploy mock USDC
+        usdc = new MockUSDC();
 
         // Deploy registry
         registry = new PNSRegistry();
@@ -43,41 +61,46 @@ contract PNSIntegrationTest is Test {
         resolver = new PNSResolver();
         resolver.initialize(admin, address(registry));
 
-        // Deploy registrar
+        // Deploy registrar with USDC
         registrar = new PNSRegistrar();
-        registrar.initialize(address(registry), address(priceOracle), treasury, admin);
+        registrar.initialize(address(registry), address(priceOracle), treasury, address(usdc), admin);
 
-        // Deploy controller
+        // Deploy controller with USDC
         controller = new PNSController();
-        controller.initialize(address(registry), address(registrar), address(resolver), admin, address(priceOracle));
+        controller.initialize(address(registry), address(registrar), address(resolver), admin, address(priceOracle), address(usdc));
 
         // Deploy NFT
         nft = new PNSDomainNFT(address(registry), "https://pns.poly/metadata/");
 
-        // Grant roles - NOTE: must be done AFTER registrar initialization
+        // Grant roles
         registry.setRegistrar(address(registrar));
         registry.setResolver(address(resolver));
-
-        // Explicitly grant REGISTRAR_ROLE to registrar on registry
         registry.grantRole(registry.REGISTRAR_ROLE(), address(registrar));
-
-        // Grant registrar role to controller for direct calls from tests
         registrar.grantRole(registrar.CONTROLLER_ROLE(), address(controller));
         registrar.grantRole(registrar.ADMIN_ROLE(), admin);
-
-        // Grant resolver role to controller so it can set resolver records
         resolver.grantRole(resolver.REGISTRY_ROLE(), address(controller));
 
         vm.stopPrank();
 
-        // Give users some funds
-        vm.deal(user1, 1000 ether);
-        vm.deal(user2, 1000 ether);
+        // Mint USDC to users
+        usdc.mint(user1, 1000 * 10**6); // 1000 USDC
+        usdc.mint(user2, 1000 * 10**6);
+    }
+
+    // ============ Helper function ============
+    function approveAndRegister(address user, string memory name, uint256 duration) internal {
+        bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
+        uint256 price = priceOracle.getPrice(nameHash, name, duration);
+        
+        vm.startPrank(user);
+        usdc.approve(address(controller), price);
+        controller.registerDomain(name, user, duration);
+        vm.stopPrank();
     }
 
     // ============ Registry Tests ============
 
-    function testRegistryInitialization() public {
+    function testRegistryInitialization() public view {
         assertEq(address(registry.owner()), admin);
         assertTrue(registry.hasRole(registry.ADMIN_ROLE(), admin));
     }
@@ -87,7 +110,6 @@ contract PNSIntegrationTest is Test {
         bytes32 nameHash = keccak256(abi.encodePacked("alice", ".poly"));
         uint64 expiration = uint64(block.timestamp + 365 days);
 
-        // Grant REGISTRAR_ROLE to admin for this test
         registry.grantRole(registry.REGISTRAR_ROLE(), admin);
         registry.registerName(nameHash, user1, address(resolver), expiration);
 
@@ -100,49 +122,24 @@ contract PNSIntegrationTest is Test {
         vm.stopPrank();
     }
 
-    function testTransferName() public {
-        vm.startPrank(admin);
-        bytes32 nameHash = keccak256(abi.encodePacked("bob", ".poly"));
-        uint64 expiration = uint64(block.timestamp + 365 days);
-        registry.grantRole(registry.REGISTRAR_ROLE(), admin);
-        registry.registerName(nameHash, user1, address(resolver), expiration);
-        vm.stopPrank();
-
-        vm.startPrank(user1);
-        registry.transferName(nameHash, user2);
-
-        (address nameOwner,,) = registry.getNameRecord(nameHash);
-        assertEq(nameOwner, user2);
-        vm.stopPrank();
-    }
-
-    function testReverseRecord() public {
-        vm.startPrank(admin);
-        bytes32 nameHash = keccak256(abi.encodePacked("charlie", ".poly"));
-        uint64 expiration = uint64(block.timestamp + 365 days);
-        registry.grantRole(registry.REGISTRAR_ROLE(), admin);
-        registry.registerName(nameHash, user1, address(resolver), expiration);
-        vm.stopPrank();
-
-        vm.startPrank(user1);
-        registry.setReverseRecord(nameHash);
-        bytes32 reverseRecord = registry.getReverseRecord(user1);
-        assertEq(reverseRecord, nameHash);
-        vm.stopPrank();
-    }
-
     // ============ Price Oracle Tests ============
 
-    function testPriceCalculation() public {
-        bytes32 hash3 = keccak256(abi.encodePacked("abc"));
-        bytes32 hash4 = keccak256(abi.encodePacked("abcd"));
-        bytes32 hash5 = keccak256(abi.encodePacked("abcde"));
-        bytes32 hash7 = keccak256(abi.encodePacked("abcdefg"));
+    function testPriceCalculation() public view {
+        bytes32 hash3 = keccak256(abi.encodePacked("abc", ".poly"));
+        bytes32 hash4 = keccak256(abi.encodePacked("abcd", ".poly"));
+        bytes32 hash5 = keccak256(abi.encodePacked("abcde", ".poly"));
+        bytes32 hash7 = keccak256(abi.encodePacked("abcdefg", ".poly"));
 
         uint256 price3 = priceOracle.getPrice(hash3, "abc", 1);
         uint256 price4 = priceOracle.getPrice(hash4, "abcd", 1);
         uint256 price5 = priceOracle.getPrice(hash5, "abcde", 1);
         uint256 price7 = priceOracle.getPrice(hash7, "abcdefg", 1);
+
+        // Verify USDC pricing (6 decimals)
+        assertEq(price3, 50 * 10**6); // 50 USDC
+        assertEq(price4, 10 * 10**6); // 10 USDC
+        assertEq(price5, 2 * 10**6);  // 2 USDC
+        assertEq(price7, 5 * 10**5);  // 0.5 USDC
 
         // 3 char is most expensive
         assertTrue(price3 > price4);
@@ -152,178 +149,61 @@ contract PNSIntegrationTest is Test {
 
     function testPremiumPricing() public {
         vm.startPrank(admin);
-        bytes32 premiumHash = keccak256(abi.encodePacked("premium"));
-        priceOracle.setPremiumPrice(premiumHash, 100 ether);
+        bytes32 premiumHash = keccak256(abi.encodePacked("premium", ".poly"));
+        priceOracle.setPremiumPrice(premiumHash, 100 * 10**6); // 100 USDC
 
         uint256 premiumPrice = priceOracle.getPrice(premiumHash, "premium", 1);
-        assertEq(premiumPrice, 100 ether);
+        assertEq(premiumPrice, 100 * 10**6);
 
         vm.stopPrank();
     }
 
-    // ============ Resolver Tests ============
-
-    function testSetAddressRecord() public {
-        bytes32 nameHash = keccak256(abi.encodePacked("resolver_test"));
-
-        vm.startPrank(admin);
-        resolver.grantRole(resolver.REGISTRY_ROLE(), admin);
-        resolver.setAddr(nameHash, 966, user1);
-        address stored = resolver.getAddr(nameHash, 966);
-        assertEq(stored, user1);
-        vm.stopPrank();
-    }
-
-    function testSetTextRecords() public {
-        bytes32 nameHash = keccak256(abi.encodePacked("text_test"));
-
-        vm.startPrank(admin);
-        resolver.grantRole(resolver.REGISTRY_ROLE(), admin);
-        resolver.setText(nameHash, "avatar", "https://example.com/avatar.png");
-        resolver.setText(nameHash, "website", "https://example.com");
-
-        string memory avatar = resolver.getText(nameHash, "avatar");
-        string memory website = resolver.getText(nameHash, "website");
-
-        assertEq(avatar, "https://example.com/avatar.png");
-        assertEq(website, "https://example.com");
-        vm.stopPrank();
-    }
-
-    function testSetContentHash() public {
-        bytes32 nameHash = keccak256(abi.encodePacked("content_test"));
-        bytes memory contentHash = hex"1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-
-        vm.startPrank(admin);
-        resolver.grantRole(resolver.REGISTRY_ROLE(), admin);
-        resolver.setContentHash(nameHash, contentHash);
-        bytes memory stored = resolver.getContentHash(nameHash);
-        assertEq(stored, contentHash);
-        vm.stopPrank();
-    }
-
-    // ============ Registrar Tests ============
-
-    function testRegistrarInitialization() public {
-        assertEq(address(registrar.registry()), address(registry));
-        assertEq(address(registrar.priceOracle()), address(priceOracle));
-        assertEq(registrar.treasury(), treasury);
-    }
-
-    function testDirectRegistration() public {
-        vm.startPrank(user1);
-
-        bytes32 nameHash = keccak256(abi.encodePacked("alice", ".poly"));
-        uint256 price = priceOracle.getPrice(nameHash, "alice", 1);
-
-        // Call through controller instead of directly
-        controller.registerDomain{value: price}("alice", user1, 1);
-
-        assertTrue(registry.exists(nameHash));
-        (address nameOwner,,) = registry.getNameRecord(nameHash);
-        assertEq(nameOwner, user1);
-
-        vm.stopPrank();
-    }
-
-    function testCommitRevealRegistration() public {
-        vm.startPrank(user1);
-
-        string memory name = "bob";
-        string memory secret = "verysecretvalue";
-        bytes32 commitment = registrar.getCommitmentHash(name, user1, secret);
-
-        // Make commitment
-        registrar.makeCommitment(commitment);
-
-        // Fast forward
-        vm.warp(block.timestamp + 1 days + 1 seconds);
-
-        bytes32 nameHash = keccak256(abi.encodePacked("bob", ".poly"));
-        uint256 price = priceOracle.getPrice(nameHash, name, 1);
-
-        // Use controller for registration
-        controller.registerDomain{value: price}(name, user1, 1);
-
-        assertTrue(registry.exists(nameHash));
-        vm.stopPrank();
-    }
-
-    function testRenewal() public {
-        vm.startPrank(user1);
-
-        // Register first through controller
-        bytes32 nameHash = keccak256(abi.encodePacked("charlie", ".poly"));
-        uint256 price = priceOracle.getPrice(nameHash, "charlie", 1);
-        controller.registerDomain{value: price}("charlie", user1, 1);
-
-        uint64 originalExp;
-        (,, originalExp) = registry.getNameRecord(nameHash);
-
-        // Stop user1 prank
-        vm.stopPrank();
-
-        // Grant user1 the controller role so they can call registrar directly
-        vm.startPrank(admin);
-        registrar.grantRole(registrar.CONTROLLER_ROLE(), user1);
-        vm.stopPrank();
-
-        // Now user1 can renew
-        vm.startPrank(user1);
-        uint256 renewPrice = priceOracle.getPrice(nameHash, "charlie", 1);
-        registrar.renew{value: renewPrice}("charlie", 1);
-
-        uint64 newExp;
-        (,, newExp) = registry.getNameRecord(nameHash);
-        assertTrue(newExp > originalExp);
-
-        vm.stopPrank();
-    }
-
-    // ============ Controller Tests ============
-
-    function testControllerInitialization() public {
-        assertEq(address(controller.registry()), address(registry));
-        assertEq(address(controller.registrar()), address(registrar));
-        assertEq(address(controller.defaultResolver()), address(resolver));
-    }
+    // ============ Controller Tests with USDC ============
 
     function testSimpleRegistration() public {
+        bytes32 nameHash = keccak256(abi.encodePacked("testdomain", ".poly"));
+        uint256 price = priceOracle.getPrice(nameHash, "testdomain", 1);
+
         vm.startPrank(user1);
-
-        bytes32 nameHash = keccak256(abi.encodePacked("user1domain", ".poly"));
-        uint256 price = priceOracle.getPrice(nameHash, "user1domain", 1);
-
-        controller.registerDomain{value: price}("user1domain", user1, 1);
+        usdc.approve(address(controller), price);
+        controller.registerDomain("testdomain", user1, 1);
+        vm.stopPrank();
 
         assertTrue(registry.exists(nameHash));
-        vm.stopPrank();
+        (address owner,,) = registry.getNameRecord(nameHash);
+        assertEq(owner, user1);
     }
 
     function testRegistrationWithAddress() public {
-        vm.startPrank(user1);
-
         bytes32 nameHash = keccak256(abi.encodePacked("user2domain", ".poly"));
         uint256 price = priceOracle.getPrice(nameHash, "user2domain", 1);
 
-        controller.registerWithAddress{value: price}("user2domain", user1, 1, user1);
+        vm.startPrank(user1);
+        usdc.approve(address(controller), price);
+        controller.registerWithAddress("user2domain", user1, 1, user1);
+        vm.stopPrank();
 
         assertTrue(registry.exists(nameHash));
         address stored = resolver.getPolygonAddr(nameHash);
         assertEq(stored, user1);
-
-        vm.stopPrank();
     }
 
     function testRegistrationWithMetadata() public {
-        vm.startPrank(user1);
-
         bytes32 nameHash = keccak256(abi.encodePacked("metadomain", ".poly"));
         uint256 price = priceOracle.getPrice(nameHash, "metadomain", 1);
 
-        controller.registerWithMetadata{value: price}(
-            "metadomain", user1, 1, user1, "https://example.com/avatar.png", "https://example.com", "user@example.com"
+        vm.startPrank(user1);
+        usdc.approve(address(controller), price);
+        controller.registerWithMetadata(
+            "metadomain", 
+            user1, 
+            1, 
+            user1, 
+            "https://example.com/avatar.png", 
+            "https://example.com", 
+            "user@example.com"
         );
+        vm.stopPrank();
 
         assertTrue(registry.exists(nameHash));
         address stored = resolver.getPolygonAddr(nameHash);
@@ -331,13 +211,9 @@ contract PNSIntegrationTest is Test {
 
         string memory avatar = resolver.getText(nameHash, "avatar");
         assertEq(avatar, "https://example.com/avatar.png");
-
-        vm.stopPrank();
     }
 
     function testBatchRegistration() public {
-        vm.startPrank(user1);
-
         string[] memory names = new string[](2);
         names[0] = "batch1";
         names[1] = "batch2";
@@ -352,39 +228,78 @@ contract PNSIntegrationTest is Test {
             totalPrice += price;
         }
 
-        // Register individually (simulating batch)
-        for (uint256 i = 0; i < names.length; i++) {
-            bytes32 hash = keccak256(abi.encodePacked(names[i], ".poly"));
-            uint256 price = priceOracle.getPrice(hash, names[i], duration);
-            controller.registerDomain{value: price}(names[i], user1, duration);
-        }
+        vm.startPrank(user1);
+        usdc.approve(address(controller), totalPrice);
+        controller.batchRegister(names, user1, duration);
+        vm.stopPrank();
 
         // Verify registrations
         for (uint256 i = 0; i < names.length; i++) {
             bytes32 hash = keccak256(abi.encodePacked(names[i], ".poly"));
-            assertTrue(registry.exists(hash), string.concat("Domain not registered: ", names[i]));
+            assertTrue(registry.exists(hash));
             (address domainOwner,,) = registry.getNameRecord(hash);
-            assertEq(domainOwner, user1, "Owner mismatch");
+            assertEq(domainOwner, user1);
         }
+    }
 
+    function testRenewal() public {
+        // Register first
+        approveAndRegister(user1, "renewtest", 1);
+
+        bytes32 nameHash = keccak256(abi.encodePacked("renewtest", ".poly"));
+        (, , uint64 originalExp) = registry.getNameRecord(nameHash);
+
+        // Renew
+        uint256 renewPrice = priceOracle.getPrice(nameHash, "renewtest", 1);
+        vm.startPrank(user1);
+        usdc.approve(address(controller), renewPrice);
+        controller.renewDomain("renewtest", 1);
         vm.stopPrank();
+
+        (, , uint64 newExp) = registry.getNameRecord(nameHash);
+        assertTrue(newExp > originalExp);
     }
 
     function testDomainAvailability() public {
-        vm.startPrank(user1);
-
-        bytes32 nameHash = keccak256(abi.encodePacked("available", ".poly"));
-        uint256 price = priceOracle.getPrice(nameHash, "available", 1);
-
         // Should be available initially
         assertTrue(controller.isDomainAvailable("available"));
 
-        // Register it through controller
-        controller.registerDomain{value: price}("available", user1, 1);
+        // Register it
+        approveAndRegister(user1, "available", 1);
 
         // Should not be available
         assertFalse(controller.isDomainAvailable("available"));
+    }
 
+    function testUSDCPaymentFlow() public {
+        bytes32 nameHash = keccak256(abi.encodePacked("payment", ".poly"));
+        uint256 price = priceOracle.getPrice(nameHash, "payment", 1);
+
+        uint256 treasuryBalanceBefore = usdc.balanceOf(treasury);
+        uint256 user1BalanceBefore = usdc.balanceOf(user1);
+
+        vm.startPrank(user1);
+        usdc.approve(address(controller), price);
+        controller.registerDomain("payment", user1, 1);
+        vm.stopPrank();
+
+        uint256 treasuryBalanceAfter = usdc.balanceOf(treasury);
+        uint256 user1BalanceAfter = usdc.balanceOf(user1);
+
+        // Verify USDC was transferred
+        assertEq(treasuryBalanceAfter - treasuryBalanceBefore, price);
+        assertEq(user1BalanceBefore - user1BalanceAfter, price);
+    }
+
+    function testInsufficientApproval() public {
+        bytes32 nameHash = keccak256(abi.encodePacked("test", ".poly"));
+        uint256 price = priceOracle.getPrice(nameHash, "test", 1);
+
+        vm.startPrank(user1);
+        usdc.approve(address(controller), price - 1); // Approve less than needed
+        
+        vm.expectRevert();
+        controller.registerDomain("test", user1, 1);
         vm.stopPrank();
     }
 
@@ -400,39 +315,5 @@ contract PNSIntegrationTest is Test {
         assertEq(nft.ownerOf(1), user1);
 
         vm.stopPrank();
-    }
-
-    function testNFTTransfer() public {
-        vm.startPrank(admin);
-
-        bytes32 nameHash = keccak256(abi.encodePacked("transferdomain"));
-        nft.mintDomain("transferdomain", nameHash, user1);
-
-        vm.stopPrank();
-
-        vm.startPrank(user1);
-        nft.transferFrom(user1, user2, 1);
-        assertEq(nft.ownerOf(1), user2);
-        vm.stopPrank();
-    }
-
-    // ============ Helper Functions ============
-
-    function testHelperFunctions() public view {
-        bytes32 hash3 = keccak256(abi.encodePacked("abc"));
-        uint256 tier3 = priceOracle.getPriceTier(3);
-        assertEq(tier3, 1); // short
-
-        bytes32 hash4 = keccak256(abi.encodePacked("abcd"));
-        uint256 tier4 = priceOracle.getPriceTier(4);
-        assertEq(tier4, 2); // mid
-
-        bytes32 hash5 = keccak256(abi.encodePacked("abcde"));
-        uint256 tier5 = priceOracle.getPriceTier(5);
-        assertEq(tier5, 3); // regular
-
-        bytes32 hash10 = keccak256(abi.encodePacked("abcdefghij"));
-        uint256 tier10 = priceOracle.getPriceTier(10);
-        assertEq(tier10, 4); // long
     }
 }

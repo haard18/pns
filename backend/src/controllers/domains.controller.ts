@@ -42,7 +42,13 @@ export class DomainsController {
       
       const paginatedDomains = domains.slice(startIndex, endIndex);
 
-      res.json({
+      logger.info('Domains fetched by owner', {
+        address,
+        total: domains.length,
+        page: pageNum
+      });
+
+      return res.json({
         success: true,
         data: {
           domains: paginatedDomains,
@@ -52,15 +58,9 @@ export class DomainsController {
           hasMore: endIndex < domains.length
         }
       });
-
-      logger.info('Domains fetched by owner', {
-        address,
-        total: domains.length,
-        page: pageNum
-      });
     } catch (error) {
       logger.error('Error fetching domains by owner:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
@@ -97,15 +97,15 @@ export class DomainsController {
         });
       }
 
-      res.json({
+      logger.info('Domain info fetched', { nameOrHash });
+
+      return res.json({
         success: true,
         data: domain
       });
-
-      logger.info('Domain info fetched', { nameOrHash });
     } catch (error) {
       logger.error('Error fetching domain info:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
@@ -136,7 +136,7 @@ export class DomainsController {
       const limitNum = Math.min(parseInt(limit as string) || 50, 100);
       const domains = await this.domainService.searchDomains(q, limitNum);
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           domains,
@@ -148,7 +148,7 @@ export class DomainsController {
       logger.info('Domain search performed', { query: q, results: domains.length });
     } catch (error) {
       logger.error('Error searching domains:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
@@ -172,7 +172,7 @@ export class DomainsController {
       const endIndex = startIndex + limitNum;
       const paginatedDomains = expiringDomains.slice(startIndex, endIndex);
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           domains: paginatedDomains,
@@ -187,7 +187,7 @@ export class DomainsController {
       logger.info('Expiring domains fetched', { days: daysNum, total: expiringDomains.length });
     } catch (error) {
       logger.error('Error fetching expiring domains:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
@@ -210,7 +210,7 @@ export class DomainsController {
       const endIndex = startIndex + limitNum;
       const paginatedDomains = expiredDomains.slice(startIndex, endIndex);
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           domains: paginatedDomains,
@@ -224,7 +224,7 @@ export class DomainsController {
       logger.info('Expired domains fetched', { total: expiredDomains.length });
     } catch (error) {
       logger.error('Error fetching expired domains:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
@@ -234,11 +234,11 @@ export class DomainsController {
   /**
    * GET /domains/stats - Get domain statistics
    */
-  getStatistics = async (req: Request, res: Response) => {
+  getStatistics = async (_req: Request, res: Response) => {
     try {
       const stats = await this.domainService.getStatistics();
 
-      res.json({
+      return res.json({
         success: true,
         data: stats
       });
@@ -246,7 +246,7 @@ export class DomainsController {
       logger.info('Domain statistics fetched', stats);
     } catch (error) {
       logger.error('Error fetching domain statistics:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
@@ -264,7 +264,7 @@ export class DomainsController {
 
       const result = await this.domainService.getAllDomains(pageNum, limitNum);
 
-      res.json({
+      return res.json({
         success: true,
         data: result
       });
@@ -276,7 +276,7 @@ export class DomainsController {
       });
     } catch (error) {
       logger.error('Error fetching all domains:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });

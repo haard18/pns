@@ -13,14 +13,14 @@ export interface ContractAddresses {
 
 // Contract addresses for different networks
 const contractAddresses: Record<number, ContractAddresses> = {
-  // Polygon Mainnet (Deployed December 2, 2025)
+  // Polygon Mainnet v2 USDC (Deployed December 5, 2025)
   137: {
-    registry: '0xD913d5976030a05349a0B393063a052130234303',
-    registrar: '0x7e3a227Fb9abE743692Cd4beb8Db3A210C700B3a',
-    controller: '0xced4F08241EC1Bb6B95f85028911043903299538',
-    resolver: '0x6Ed01A870D262a054e2C5E7a7161cF8F2EA2f8d7',
-    priceOracle: '0xE810156cf63d572dB9d31F277DCC05AA60aD8C22',
-    domainNFT: '0xf7e61Ad13C8a1593e57C161DD863CDcD0d01326E',
+    registry: '0x7c4486efe85C3bFBF0cb6b8Ac0cAcc3D580501Ba',
+    registrar: '0x31ac529Be6F2d51c42dd1C9D1DDcC95910D788f6',
+    controller: '0x463ba8Cb8b322b2DE6B498078462Bf9746638927',
+    resolver: '0x2B826A368aBb0ECa9FB0Ac1C35BA3735133f4De2',
+    priceOracle: '0xbbeaEE62A29DF74Cb872D7F92907e274D8587DE9',
+    domainNFT: '0x7916a0bCcEf6AEfF4d603C04313eDf0d59Dfc028',
   },
   
   // Polygon Amoy Testnet

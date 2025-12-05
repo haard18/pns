@@ -1,4 +1,4 @@
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
@@ -6,11 +6,12 @@ import { Config } from './config';
 
 // New architecture routes - event indexing only
 import domainsRoutes from './routes/domains.routes';
-import txRoutes from './routes/tx.routes';
 
 import logger from './utils/logger';
 import { ApiResponse } from './types';
 import EventIndexer from './indexer/scanEvents';
+import database from './services/database.service';
+import redis from './services/redis.service';
 
 // Initialize Express app
 const app: Application = express();
@@ -50,11 +51,10 @@ app.use('/api/', limiter);
 
 // API Routes - New architecture
 app.use('/api', domainsRoutes);
-app.use('/api', txRoutes);
-
 // Health check endpoint
-app.get('/api/health', (_req: Request, res: Response) => {
+app.get('/health', async (_req: Request, res: Response) => {
   const indexerStatus = indexer ? indexer.getStatus() : null;
+  const redisHealthy = await redis.ping();
   
   res.json({
     success: true,
@@ -62,6 +62,25 @@ app.get('/api/health', (_req: Request, res: Response) => {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       indexer: indexerStatus,
+      redis: redisHealthy ? 'connected' : 'disconnected',
+      database: 'connected',
+      version: '2.0.0'
+    }
+  });
+});
+
+app.get('/api/health', async (_req: Request, res: Response) => {
+  const indexerStatus = indexer ? indexer.getStatus() : null;
+  const redisHealthy = await redis.ping();
+  
+  res.json({
+    success: true,
+    data: {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      indexer: indexerStatus,
+      redis: redisHealthy ? 'connected' : 'disconnected',
+      database: 'connected',
       version: '2.0.0'
     }
   });
@@ -108,99 +127,98 @@ app.use((_req: Request, res: Response) => {
   res.status(404).json(response);
 });
 
-// 404 handler
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    error: 'Endpoint not found',
-    timestamp: Date.now()
-  });
-});
-
-// Global error handler
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  logger.error('Unhandled error', {
-    error: err.message,
-    stack: err.stack
-  });
-
-  const response: ApiResponse = {
-    success: false,
-    error: process.env.NODE_ENV === 'production'
-      ? 'Internal server error'
-      : err.message,
-    timestamp: Date.now()
-  };
-
-  res.status(500).json(response);
-});
+// Initialize database and Redis
+async function initializeServices() {
+  try {
+    logger.info('Connecting to database...');
+    await database.connect();
+    
+    logger.info('Connecting to Redis...');
+    await redis.connect();
+    
+    logger.info('All services connected successfully');
+  } catch (error) {
+    logger.error('Failed to initialize services:', error);
+    throw error;
+  }
+}
 
 // Initialize and start event indexer
 async function startIndexer() {
   try {
     indexer = new EventIndexer();
     await indexer.initialize();
-    await indexer.start();
-    logger.info('Event indexer started successfully');
+    
+    if (Config.indexer.enabled) {
+      await indexer.start();
+      logger.info('Event indexer started successfully');
+    } else {
+      logger.info('Event indexer is disabled');
+    }
   } catch (error) {
     logger.error('Failed to start event indexer:', error);
     // Continue without indexer in development
     if (process.env.NODE_ENV === 'production') {
-      process.exit(1);
+      throw error;
     }
   }
 }
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-  logger.info('Received SIGINT, shutting down gracefully');
-  
-  if (indexer) {
-    indexer.stop();
-  }
-  
-  process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-  logger.info('Received SIGTERM, shutting down gracefully');
-  
-  if (indexer) {
-    indexer.stop();
-  }
-  
-  process.exit(0);
-});
-
 // Start server
 const PORT = Config.PORT || 3000;
 
-app.listen(PORT, async () => {
-  logger.info(`PNS Event Indexer API server started`, {
-    port: PORT,
-    env: process.env.NODE_ENV || 'development',
-    polygonRpc: Config.polygon.rpcUrl,
-    architecture: 'Event-driven indexing'
-  });
+async function startServer() {
+  try {
+    // Initialize database and Redis first
+    await initializeServices();
+    
+    // Start HTTP server
+    app.listen(PORT, async () => {
+      logger.info(`PNS Event Indexer API server started`, {
+        port: PORT,
+        env: process.env.NODE_ENV || 'development',
+        polygonRpc: Config.polygon.rpcUrl,
+        architecture: 'Event-driven indexing with PostgreSQL and Redis'
+      });
 
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 Polygon RPC: ${Config.polygon.rpcUrl}`);
-  console.log(`📚 API Docs: http://localhost:${PORT}/`);
-  console.log(`🔍 Event indexing: ${Config.indexer.scanIntervalMs || 30000}ms intervals`);
-  
-  // Start the event indexer
-  await startIndexer();
-});
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📡 Polygon RPC: ${Config.polygon.rpcUrl}`);
+      console.log(`🗄️  Database: ${Config.database.url.split('@')[1] || 'Connected'}`);
+      console.log(`🔴 Redis: ${Config.redis.url}`);
+      console.log(`📚 API Docs: http://localhost:${PORT}/`);
+      console.log(`🔍 Event indexing: ${Config.indexer.scanIntervalMs || 30000}ms intervals`);
+      
+      // Start the event indexer
+      await startIndexer();
+    });
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM signal received: closing HTTP server');
+  if (indexer) {
+    indexer.stop();
+  }
+  await database.disconnect();
+  await redis.disconnect();
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   logger.info('SIGINT signal received: closing HTTP server');
+  if (indexer) {
+    indexer.stop();
+  }
+  await database.disconnect();
+  await redis.disconnect();
   process.exit(0);
 });
+
+// Start the server
+startServer();
 
 export default app;

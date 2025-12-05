@@ -4,6 +4,7 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { PNSRegistry } from "./PNSRegistry.sol";
 import { PNSPriceOracle } from "./PNSPriceOracle.sol";
@@ -33,6 +34,9 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
 
     /// @notice Treasury address for collecting fees
     address public treasury;
+
+    /// @notice USDC token address for payments
+    IERC20 public usdcToken;
 
     /// @notice Minimum registration length
     uint256 public constant MIN_NAME_LENGTH = 3;
@@ -103,20 +107,23 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @param _registry PNSRegistry contract address
      * @param _priceOracle PNSPriceOracle contract address
      * @param _treasury Treasury address
+     * @param _usdcToken USDC token address
      * @param admin Initial admin address
      */
-    function initialize(address _registry, address _priceOracle, address _treasury, address admin)
+    function initialize(address _registry, address _priceOracle, address _treasury, address _usdcToken, address admin)
         external
         initializer
     {
         require(_registry != address(0), "Registrar: Invalid registry");
         require(_priceOracle != address(0), "Registrar: Invalid oracle");
         require(_treasury != address(0), "Registrar: Invalid treasury");
+        require(_usdcToken != address(0), "Registrar: Invalid USDC token");
         require(admin != address(0), "Registrar: Invalid admin");
 
         registry = PNSRegistry(_registry);
         priceOracle = PNSPriceOracle(_priceOracle);
         treasury = _treasury;
+        usdcToken = IERC20(_usdcToken);
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
@@ -214,7 +221,7 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         string calldata secret,
         uint256 duration,
         address resolver
-    ) external payable onlyAuthorized nonReentrant {
+    ) external onlyAuthorized nonReentrant {
         bytes32 commitment = keccak256(abi.encodePacked(name, owner, secret));
 
         require(commitments[commitment] > 0, "Registrar: No commitment");
@@ -226,14 +233,6 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         delete commitments[commitment];
 
         _register(name, owner, duration, resolver);
-
-        // Refund excess payment
-        uint256 price = priceOracle.getPrice(keccak256(abi.encodePacked(name, ".poly")), name, duration);
-        if (msg.value > price) {
-            (bool success,) = msg.sender.call{value: msg.value - price}("");
-            require(success, "Registrar: Refund failed");
-            emit RefundIssued(msg.sender, msg.value - price);
-        }
     }
 
     // ============ Direct Registration Functions ============
@@ -247,19 +246,20 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      */
     function register(string calldata name, address owner, uint256 duration, address resolver)
         external
-        payable
         onlyAuthorized
         nonReentrant
     {
-        _register(name, owner, duration, resolver);
-
-        // Refund excess payment
-        uint256 price = priceOracle.getPrice(keccak256(abi.encodePacked(name, ".poly")), name, duration);
-        if (msg.value > price) {
-            (bool success,) = msg.sender.call{value: msg.value - price}("");
-            require(success, "Registrar: Refund failed");
-            emit RefundIssued(msg.sender, msg.value - price);
+        // Handle payment if called directly (not from controller)
+        bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
+        uint256 price = priceOracle.getPrice(nameHash, name, duration);
+        
+        // If msg.sender is not the controller, handle payment
+        // Controller handles payment separately
+        if (!hasRole(CONTROLLER_ROLE, msg.sender)) {
+            require(usdcToken.transferFrom(msg.sender, treasury, price), "Registrar: USDC transfer failed");
         }
+        
+        _register(name, owner, duration, resolver);
     }
 
     /**
@@ -291,19 +291,13 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         // Ensure no concurrent registration has happened before proceeding
         require(!registry.exists(nameHash), "Registrar: Name already registered");
 
-        // Get price and validate payment
         uint256 price = priceOracle.getPrice(nameHash, name, duration);
-        require(msg.value >= price, "Registrar: Insufficient payment");
 
         // Calculate expiration
         uint64 newExpiration = uint64(block.timestamp + (duration * 365 days));
 
         // Register fresh name in registry
         registry.registerName(nameHash, owner, resolver, newExpiration);
-
-        // Transfer payment to treasury
-        (bool success,) = treasury.call{value: price}("");
-        require(success, "Registrar: Payment transfer failed");
 
         emit NameRegistered(nameHash, name, owner, price, newExpiration);
     }
@@ -315,34 +309,27 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
      * @param name Domain name
      * @param duration Renewal duration in years
      */
-    function renew(string calldata name, uint256 duration) external payable nonReentrant {
+    function renew(string calldata name, uint256 duration) external nonReentrant {
         bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
 
         require(registry.exists(nameHash), "Registrar: Name does not exist");
         (address owner,, uint64 expiration) = registry.getNameRecord(nameHash);
-        require(msg.sender == owner, "Registrar: Not name owner");
+        require(msg.sender == owner || hasRole(CONTROLLER_ROLE, msg.sender), "Registrar: Not name owner");
         require(duration > 0 && duration <= MAX_REGISTRATION_DURATION_YEARS, "Registrar: Invalid duration");
 
         // Calculate new expiration
         uint64 renewalExpiration = uint64(expiration + (duration * 365 days));
 
-        // Get price and validate payment
+        // Get price and transfer USDC from caller if not controller
         uint256 price = priceOracle.getPrice(nameHash, name, duration);
-        require(msg.value >= price, "Registrar: Insufficient payment");
+        
+        // If msg.sender is not the controller, handle payment
+        if (!hasRole(CONTROLLER_ROLE, msg.sender)) {
+            require(usdcToken.transferFrom(msg.sender, treasury, price), "Registrar: USDC transfer failed");
+        }
 
         // Renew in registry
         registry.renewName(nameHash, renewalExpiration);
-
-        // Transfer payment to treasury
-        (bool success,) = treasury.call{value: price}("");
-        require(success, "Registrar: Payment transfer failed");
-
-        // Refund excess
-        if (msg.value > price) {
-            (bool refundSuccess,) = msg.sender.call{value: msg.value - price}("");
-            require(refundSuccess, "Registrar: Refund failed");
-            emit RefundIssued(msg.sender, msg.value - price);
-        }
 
         emit NameRenewed(nameHash, name, price, renewalExpiration);
     }
@@ -368,23 +355,29 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
     /**
      * @dev Places a bid in a premium auction
      * @param nameHash Name hash
+     * @param bidAmount Bid amount in USDC
      */
-    function placeBid(bytes32 nameHash) external payable nonReentrant {
-        require(msg.value > 0, "Registrar: Bid must be positive");
+    function placeBid(bytes32 nameHash, uint256 bidAmount) external nonReentrant {
+        require(bidAmount > 0, "Registrar: Bid must be positive");
         require(block.timestamp < auctions[nameHash].endTime, "Registrar: Auction ended");
-        require(msg.value > auctions[nameHash].highestBid, "Registrar: Bid too low");
+        require(bidAmount > auctions[nameHash].highestBid, "Registrar: Bid too low");
+
+        // Transfer USDC bid from bidder to this contract
+        require(usdcToken.transferFrom(msg.sender, address(this), bidAmount), "Registrar: USDC transfer failed");
 
         // Refund previous highest bidder
         if (auctions[nameHash].highestBidder != address(0)) {
-            (bool success,) = auctions[nameHash].highestBidder.call{value: auctions[nameHash].highestBid}("");
-            require(success, "Registrar: Refund failed");
+            require(
+                usdcToken.transfer(auctions[nameHash].highestBidder, auctions[nameHash].highestBid),
+                "Registrar: Refund failed"
+            );
             emit RefundIssued(auctions[nameHash].highestBidder, auctions[nameHash].highestBid);
         }
 
         auctions[nameHash].highestBidder = msg.sender;
-        auctions[nameHash].highestBid = msg.value;
+        auctions[nameHash].highestBid = bidAmount;
 
-        emit AuctionBidPlaced(nameHash, msg.sender, msg.value);
+        emit AuctionBidPlaced(nameHash, msg.sender, bidAmount);
     }
 
     /**
@@ -416,9 +409,8 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         uint64 expiration = uint64(block.timestamp + 365 days);
         registry.registerName(nameHash, auction.highestBidder, resolver, expiration);
 
-        // Transfer bid to treasury
-        (bool success,) = treasury.call{value: auction.highestBid}("");
-        require(success, "Registrar: Payment transfer failed");
+        // Transfer USDC bid to treasury
+        require(usdcToken.transfer(treasury, auction.highestBid), "Registrar: Payment transfer failed");
 
         emit AuctionEnded(nameHash, auction.highestBidder, auction.highestBid);
         emit NameRegistered(nameHash, name, auction.highestBidder, auction.highestBid, expiration);

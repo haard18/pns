@@ -18,6 +18,7 @@ import { PNSDomainNFT } from "../src/PNSDomainNFT.sol";
 contract DeployPNS is Script {
     address public adminAddress;
     address public treasuryAddress;
+    address public usdcTokenAddress;
 
     PNSRegistry public registry;
     PNSPriceOracle public priceOracle;
@@ -30,10 +31,15 @@ contract DeployPNS is Script {
         // Get configuration from environment or use defaults
         adminAddress = vm.envOr("PNS_ADMIN", msg.sender);
         treasuryAddress = vm.envOr("PNS_TREASURY", msg.sender);
+        
+        // USDC token address on Polygon - 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+        usdcTokenAddress = vm.envOr("USDC_TOKEN_ADDRESS", address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359));
+        require(usdcTokenAddress != address(0), "USDC token address required");
 
         console.log("Deploying PNS System...");
         console.log("Admin:", adminAddress);
         console.log("Treasury:", treasuryAddress);
+        console.log("USDC Token:", usdcTokenAddress);
 
         vm.startBroadcast();
 
@@ -58,7 +64,7 @@ contract DeployPNS is Script {
         // Deploy PNSRegistrar
         console.log("\n=== Deploying PNSRegistrar ===");
         registrar = new PNSRegistrar();
-        registrar.initialize(address(registry), address(priceOracle), treasuryAddress, adminAddress);
+        registrar.initialize(address(registry), address(priceOracle), treasuryAddress, usdcTokenAddress, adminAddress);
         console.log("PNSRegistrar deployed at:", address(registrar));
 
         // Deploy PNSController
@@ -69,7 +75,8 @@ contract DeployPNS is Script {
             address(registrar),
             address(resolver),
             adminAddress,
-            address(priceOracle)
+            address(priceOracle),
+            usdcTokenAddress
         );
         console.log("PNSController deployed at:", address(controller));
 
@@ -105,6 +112,7 @@ contract DeployPNS is Script {
         console.log("Registrar:", address(registrar));
         console.log("Controller:", address(controller));
         console.log("NFT:", address(nft));
+        console.log("USDC Token:", usdcTokenAddress);
 
         vm.stopBroadcast();
     }

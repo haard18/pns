@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
-import { useWallet } from "../contexts/WalletContext";
+import { useAccount } from 'wagmi';
 import { useDomain } from "../hooks/useDomain";
 
 interface DomainItem {
@@ -11,7 +11,7 @@ interface DomainItem {
 
 const Domain = () => {
   const navigate = useNavigate();
-  const { address } = useWallet();
+  const { address } = useAccount();
   const { getUserDomains } = useDomain();
   
   const [activeTab, setActiveTab] = useState<"collections" | "cart" | "registrar">("collections");

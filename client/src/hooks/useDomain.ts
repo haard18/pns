@@ -3,16 +3,16 @@
  * Uses DIRECT CONTRACT CALLS according to new architecture
  * Backend is only used for recording successful transactions
  */
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useContracts } from './useContracts';
 import type { DomainInfo, RegistrationResult } from './useContracts';
 import { useAccount } from 'wagmi';
-import { validateDomainName, formatMatic } from '../lib/namehash';
+import { validateDomainName, formatUsdc } from '../lib/namehash';
 
 export interface PriceData {
   price: string;
   priceWei: bigint;
-  currency: 'MATIC';
+  currency: 'USDC';
 }
 
 export interface UseDomainState {
@@ -103,13 +103,13 @@ export function useDomain(): UseDomainState & UseDomainActions {
 
     try {
       const priceWei = await contracts.getDomainPrice(name, durationYears);
-      const priceFormatted = formatMatic(priceWei);
+      const priceFormatted = formatUsdc(priceWei);
       setPrice(priceWei);
       setPriceFormatted(priceFormatted);
       return {
         price: priceFormatted,
         priceWei,
-        currency: 'MATIC'
+        currency: 'USDC'
       };
     } catch (error: any) {
       console.error('Error getting price:', error);
@@ -188,11 +188,11 @@ export function useDomain(): UseDomainState & UseDomainActions {
 
         // Refresh domain details
         await getDomainDetails(name);
-        return { 
-          success: true, 
-          txHash: result.txHash, 
-          name, 
-          registeredAt: new Date().toISOString() 
+        return {
+          success: true,
+          txHash: result.txHash,
+          name,
+          registeredAt: new Date().toISOString()
         } as RegistrationResult & { name: string; registeredAt: string };
       } else {
         setError(result.error || 'Registration failed');
@@ -380,11 +380,20 @@ export function useDomain(): UseDomainState & UseDomainActions {
 
     try {
       // Use backend API to get domains for user (requires event indexing)
-      const response = await fetch(`/api/domains/${userAddress}`);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+      const response = await fetch(`${apiUrl}/domains/${userAddress}`);
+
       if (response.ok) {
-        return await response.json();
+        const result = await response.json();
+        // Backend returns { success: true, data: { domains: [...], total, page, limit, hasMore } }
+        if (result.success && result.data && result.data.domains) {
+          return result.data.domains;
+        }
+        console.warn('getUserDomains: Unexpected response format', result);
+        return [];
       }
-      console.warn('getUserDomains: Backend returned non-ok response');
+
+      console.warn('getUserDomains: Backend returned non-ok response', response.status);
       return [];
     } catch (error: any) {
       console.error('Get user domains error:', error);
@@ -395,26 +404,18 @@ export function useDomain(): UseDomainState & UseDomainActions {
     }
   }, []);
 
-  // Monitor transaction confirmations
-  useEffect(() => {
-    if (contracts.isConfirmed && registrationResult?.success) {
-      // Transaction confirmed successfully
-      console.log('Transaction confirmed:', contracts.hash);
-    }
-  }, [contracts.isConfirmed, contracts.hash, registrationResult]);
-
   return {
     // State
     domain,
     price,
     priceFormatted,
     isAvailable,
-    isLoading: isLoading || contracts.isConfirming,
+    isLoading,
     error,
     isRegistering,
     isRenewing,
     registrationResult,
-    
+
     // Actions
     checkAvailability,
     getPrice,

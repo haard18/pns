@@ -6,6 +6,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { PNSRegistry } from "./PNSRegistry.sol";
 import { PNSRegistrar } from "./PNSRegistrar.sol";
@@ -40,6 +41,9 @@ contract PNSController is
     /// @notice Reference to price oracle
     PNSPriceOracle public priceOracle;
 
+    /// @notice USDC token for payments
+    IERC20 public usdcToken;
+
     /// @notice Registration fee in basis points (0.5% = 50)
     uint256 public registrationFeeBps = 50;
 
@@ -63,9 +67,6 @@ contract PNSController is
     /// @notice Emitted when pause state changes
     event PauseStateChanged(bool isPaused);
 
-    /// @notice Emitted when emergency withdrawal happens
-    event EmergencyWithdrawal(address indexed recipient, uint256 amount);
-
     /// @notice Emitted when resolver is updated
     event DefaultResolverUpdated(address indexed newResolver);
 
@@ -81,19 +82,23 @@ contract PNSController is
      * @param _registrar PNSRegistrar address
      * @param _resolver Default PNSResolver address
      * @param _feeRecipient Fee recipient address
+     * @param _priceOracle Price oracle address
+     * @param _usdcToken USDC token address
      */
     function initialize(
         address _registry,
         address _registrar,
         address _resolver,
         address _feeRecipient,
-        address _priceOracle
+        address _priceOracle,
+        address _usdcToken
     ) external initializer {
         require(_registry != address(0), "Controller: Invalid registry");
         require(_registrar != address(0), "Controller: Invalid registrar");
         require(_resolver != address(0), "Controller: Invalid resolver");
         require(_feeRecipient != address(0), "Controller: Invalid fee recipient");
         require(_priceOracle != address(0), "Controller: Invalid price oracle");
+        require(_usdcToken != address(0), "Controller: Invalid USDC token");
 
         __AccessControl_init();
         __Pausable_init();
@@ -107,6 +112,7 @@ contract PNSController is
         defaultResolver = PNSResolver(_resolver);
         feeRecipient = _feeRecipient;
         priceOracle = PNSPriceOracle(_priceOracle);
+        usdcToken = IERC20(_usdcToken);
     }
 
     // ============ Admin Functions ============
@@ -179,7 +185,6 @@ contract PNSController is
      */
     function registerWithAddress(string calldata name, address owner, uint256 duration, address resolveAddr)
         external
-        payable
         whenNotPaused
         nonReentrant
     {
@@ -191,15 +196,19 @@ contract PNSController is
 
         bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
 
+        // Calculate price and transfer USDC
+        uint256 price = priceOracle.getPrice(nameHash, name, duration);
+        require(usdcToken.transferFrom(msg.sender, registrar.treasury(), price), "Controller: USDC transfer failed");
+
         // Register the domain
-        registrar.register{value: msg.value}(name, owner, duration, address(defaultResolver));
+        registrar.register(name, owner, duration, address(defaultResolver));
 
         // Set address resolution
         if (resolveAddr != address(0)) {
             defaultResolver.setPolygonAddr(nameHash, resolveAddr);
         }
 
-        emit DomainRegistered(name, owner, duration, msg.value);
+        emit DomainRegistered(name, owner, duration, price);
     }
 
     /**
@@ -220,7 +229,7 @@ contract PNSController is
         string calldata avatar,
         string calldata website,
         string calldata email
-    ) external payable whenNotPaused nonReentrant {
+    ) external whenNotPaused nonReentrant {
         require(owner != address(0), "Controller: Invalid owner");
         require(duration > 0 && duration <= 10, "Controller: Invalid duration");
 
@@ -228,8 +237,12 @@ contract PNSController is
 
         bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
 
+        // Calculate price and transfer USDC
+        uint256 price = priceOracle.getPrice(nameHash, name, duration);
+        require(usdcToken.transferFrom(msg.sender, registrar.treasury(), price), "Controller: USDC transfer failed");
+
         // Register the domain
-        registrar.register{value: msg.value}(name, owner, duration, address(defaultResolver));
+        registrar.register(name, owner, duration, address(defaultResolver));
 
         // Set resolution and metadata
         if (resolveAddr != address(0)) {
@@ -249,7 +262,7 @@ contract PNSController is
 
         defaultResolver.setMultipleTextRecords(nameHash, keys, values);
 
-        emit DomainRegistered(name, owner, duration, msg.value);
+        emit DomainRegistered(name, owner, duration, price);
     }
 
     /**
@@ -260,7 +273,6 @@ contract PNSController is
      */
     function registerDomain(string calldata name, address owner, uint256 duration)
         external
-        payable
         whenNotPaused
         nonReentrant
     {
@@ -269,9 +281,13 @@ contract PNSController is
 
         _checkRateLimit(msg.sender);
 
-        registrar.register{value: msg.value}(name, owner, duration, address(defaultResolver));
+        bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
+        uint256 price = priceOracle.getPrice(nameHash, name, duration);
+        require(usdcToken.transferFrom(msg.sender, registrar.treasury(), price), "Controller: USDC transfer failed");
 
-        emit DomainRegistered(name, owner, duration, msg.value);
+        registrar.register(name, owner, duration, address(defaultResolver));
+
+        emit DomainRegistered(name, owner, duration, price);
     }
 
     /**
@@ -282,7 +298,6 @@ contract PNSController is
      */
     function batchRegister(string[] calldata names, address owner, uint256 duration)
         external
-        payable
         whenNotPaused
         nonReentrant
     {
@@ -298,13 +313,11 @@ contract PNSController is
             totalCost += price;
         }
 
-        require(msg.value >= totalCost, "Controller: Insufficient total payment");
+        // Transfer total USDC to registrar
+        require(usdcToken.transferFrom(msg.sender, registrar.treasury(), totalCost), "Controller: USDC transfer failed");
 
         for (uint256 i = 0; i < names.length; i++) {
-            bytes32 hash = keccak256(abi.encodePacked(names[i], ".poly"));
-            uint256 price = priceOracle.getPrice(hash, names[i], duration);
-
-            registrar.register{value: price}(names[i], owner, duration, address(defaultResolver));
+            registrar.register(names[i], owner, duration, address(defaultResolver));
         }
 
         emit DomainRegistered("batch", owner, duration, totalCost);
@@ -317,12 +330,16 @@ contract PNSController is
      * @param name Domain name
      * @param duration Renewal duration in years
      */
-    function renewDomain(string calldata name, uint256 duration) external payable whenNotPaused nonReentrant {
+    function renewDomain(string calldata name, uint256 duration) external whenNotPaused nonReentrant {
         require(duration > 0 && duration <= 10, "Controller: Invalid duration");
 
-        registrar.renew{value: msg.value}(name, duration);
+        bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
+        uint256 price = priceOracle.getPrice(nameHash, name, duration);
+        require(usdcToken.transferFrom(msg.sender, registrar.treasury(), price), "Controller: USDC transfer failed");
 
-        emit DomainRenewed(name, msg.sender, duration, msg.value);
+        registrar.renew(name, duration);
+
+        emit DomainRenewed(name, msg.sender, duration, price);
     }
 
     /**
@@ -330,16 +347,26 @@ contract PNSController is
      * @param names Array of domain names
      * @param duration Renewal duration in years (same for all)
      */
-    function batchRenew(string[] calldata names, uint256 duration) external payable whenNotPaused nonReentrant {
+    function batchRenew(string[] calldata names, uint256 duration) external whenNotPaused nonReentrant {
         require(names.length > 0, "Controller: Empty batch");
         require(names.length <= 10, "Controller: Batch too large");
         require(duration > 0 && duration <= 10, "Controller: Invalid duration");
+
+        uint256 totalCost = 0;
+        for (uint256 i = 0; i < names.length; i++) {
+            bytes32 hash = keccak256(abi.encodePacked(names[i], ".poly"));
+            uint256 price = priceOracle.getPrice(hash, names[i], duration);
+            totalCost += price;
+        }
+
+        // Transfer total USDC to registrar
+        require(usdcToken.transferFrom(msg.sender, registrar.treasury(), totalCost), "Controller: USDC transfer failed");
 
         for (uint256 i = 0; i < names.length; i++) {
             registrar.renew(names[i], duration);
         }
 
-        emit DomainRenewed("", msg.sender, duration, msg.value);
+        emit DomainRenewed("", msg.sender, duration, totalCost);
     }
 
     // ============ Domain Query Functions ============
@@ -396,34 +423,6 @@ contract PNSController is
         return registry.getResolver(nameHash);
     }
 
-    // ============ Emergency Functions ============
-
-    /**
-     * @dev Emergency withdrawal by owner
-     */
-    function emergencyWithdraw() external onlyRole(ADMIN_ROLE) nonReentrant {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "Controller: No funds");
-
-        (bool success,) = msg.sender.call{value: balance}("");
-        require(success, "Controller: Withdrawal failed");
-
-        emit EmergencyWithdrawal(msg.sender, balance);
-    }
-
-    /**
-     * @dev Emergency withdrawal of specific amount
-     * @param amount Amount to withdraw
-     */
-    function emergencyWithdrawAmount(uint256 amount) external onlyRole(ADMIN_ROLE) nonReentrant {
-        require(amount <= address(this).balance, "Controller: Insufficient balance");
-
-        (bool success,) = msg.sender.call{value: amount}("");
-        require(success, "Controller: Withdrawal failed");
-
-        emit EmergencyWithdrawal(msg.sender, amount);
-    }
-
     // ============ Internal Functions ============
 
     /**
@@ -446,13 +445,6 @@ contract PNSController is
         require(registrationCount[user][day] + count <= rateLimitPerDay, "Controller: Rate limit exceeded");
         registrationCount[user][day] += count;
     }
-
-    // ============ Fallback Functions ============
-
-    /**
-     * @dev Receive ether
-     */
-    receive() external payable {}
 
     // ============ Upgrade Authorization ============
 

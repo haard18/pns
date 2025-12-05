@@ -14,20 +14,20 @@ contract PNSPriceOracle is Ownable, Initializable, UUPSUpgradeable {
     /// @notice Price tier structure
     struct PriceTier {
         uint256 length; // Domain length in characters
-        uint256 pricePerYear; // Price in wei per year
+        uint256 pricePerYear; // Price in USDC (6 decimals) per year
     }
 
-    /// @notice Base price for short names (1-3 chars)
-    uint256 public shortDomainPrice = 50 ether;
+    /// @notice Base price for short names (1-3 chars) - 50 USDC
+    uint256 public shortDomainPrice = 50 * 10**6;
 
-    /// @notice Price for mid-length names (4 chars)
-    uint256 public midDomainPrice = 10 ether;
+    /// @notice Price for mid-length names (4 chars) - 10 USDC
+    uint256 public midDomainPrice = 10 * 10**6;
 
-    /// @notice Price for regular names (5-6 chars)
-    uint256 public regularDomainPrice = 2 ether;
+    /// @notice Price for regular names (5-6 chars) - 2 USDC
+    uint256 public regularDomainPrice = 2 * 10**6;
 
-    /// @notice Price for long names (7+ chars)
-    uint256 public longDomainPrice = 0.5 ether;
+    /// @notice Price for long names (7+ chars) - 0.5 USDC
+    uint256 public longDomainPrice = 5 * 10**5;
 
     /// @notice Premium names mapping (name hash -> premium price)
     mapping(bytes32 => uint256) public premiumPrices;
@@ -102,7 +102,7 @@ contract PNSPriceOracle is Ownable, Initializable, UUPSUpgradeable {
     /**
      * @dev Sets a premium price for a specific name
      * @param nameHash Hash of the premium domain
-     * @param price Premium price in wei per year
+     * @param price Premium price in USDC (6 decimals) per year
      */
     function setPremiumPrice(bytes32 nameHash, uint256 price) external onlyOwner {
         require(price > 0, "PNS: Invalid premium price");
@@ -126,7 +126,7 @@ contract PNSPriceOracle is Ownable, Initializable, UUPSUpgradeable {
      * @param nameHash Hash of the domain name
      * @param name The domain name string
      * @param numYears Number of years to register/renew
-     * @return Total price in wei
+     * @return Total price in USDC (6 decimals)
      */
     function getPrice(bytes32 nameHash, string calldata name, uint256 numYears) external view returns (uint256) {
         require(numYears > 0, "PNS: Invalid duration");
@@ -159,7 +159,7 @@ contract PNSPriceOracle is Ownable, Initializable, UUPSUpgradeable {
      * @dev Gets the yearly price for a domain
      * @param nameHash Hash of the domain name
      * @param name The domain name string
-     * @return yearlyPrice Price in wei per year
+     * @return yearlyPrice Price in USDC (6 decimals) per year
      */
     function getYearlyPrice(bytes32 nameHash, string calldata name) external view returns (uint256 yearlyPrice) {
         // Check for premium pricing first

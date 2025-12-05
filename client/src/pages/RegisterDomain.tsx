@@ -5,17 +5,16 @@ import Navbar from "../components/Navbar";
 import logo from "../assets/Logo.png";
 import { x, tg, discord } from "../assets/footer";
 import { useDomain } from "../hooks/useDomain";
-import { useWallet } from "../contexts/WalletContext";
+import { useAccount } from 'wagmi';
 import { recordTransaction } from "../services/dbService";
 // formatNumber not needed here
 
 const RegisterDomain = () => {
     const navigate = useNavigate();
-    const wallet = useWallet();
-    const { address } = wallet;
+    const { address, isConnected } = useAccount();
     const { register, getPrice } = useDomain();
     
-    const [paymentMethod, setPaymentMethod] = useState<"MATIC" | "USDC" | "Other">("MATIC");
+    const [paymentMethod, setPaymentMethod] = useState<"USDC" | "Other">("USDC");
     const [discountCode, setDiscountCode] = useState("");
     const [years, setYears] = useState(1);
     const [selectedDomains, setSelectedDomains] = useState<{name: string; price: string; isChecked: boolean}[]>([]);
@@ -63,14 +62,13 @@ const RegisterDomain = () => {
         }
     }, [getPrice]);
 
-    // Calculate totals - in MATIC
+    // Calculate totals - in USDC
     const subtotal = selectedDomains
         .filter(d => d.isChecked)
         .reduce((sum, d) => sum + parseFloat(d.price || "0"), 0);
-    const rent = selectedDomains.filter(d => d.isChecked).length * 0.01; // Adjusted for MATIC
-    const total = subtotal + rent + (years * 0.05); // Adjusted for MATIC
+    const total = subtotal * years; // Price per year × years
 
-    const usdValue = (total * 0.8).toFixed(2); // Assuming 1 MATIC = ~$0.80
+    const usdValue = total.toFixed(2); // USDC is already USD
 
     const toggleDomain = (index: number) => {
         const updated = [...selectedDomains];
@@ -82,8 +80,8 @@ const RegisterDomain = () => {
 
     // Prepare confirmation by fetching fresh oracle prices and showing a confirmation UI
     const prepareConfirmation = async () => {
-        if (!wallet.isConnected || wallet.providerType !== 'EVM') {
-            alert('Please connect an EVM wallet (MetaMask) to pay on Polygon');
+        if (!isConnected) {
+            alert('Please connect your wallet to pay on Polygon');
             return;
         }
 
@@ -106,9 +104,9 @@ const RegisterDomain = () => {
             }));
 
             const subtotalCalc = resolved.reduce((s, r) => s + parseFloat(r.price || '0'), 0);
-            const rentCalc = resolved.length * 0.01;
-            const yearsCost = years * 0.05;
-            const totalCalc = subtotalCalc + rentCalc + yearsCost;
+            const rentCalc = 0; // No rent with USDC
+            const yearsCost = 0; // Years cost included in price
+            const totalCalc = subtotalCalc * years; // Price per year × years
 
             setConfirmData({ domains: resolved, subtotal: subtotalCalc, rent: rentCalc, yearsCost, total: totalCalc });
             setConfirming(true);
@@ -121,8 +119,8 @@ const RegisterDomain = () => {
     };
 
     const handleConfirmAndPay = async () => {
-        if (!wallet.isConnected || wallet.providerType !== 'EVM') {
-            alert('Please connect an EVM wallet (MetaMask) to pay on Polygon');
+        if (!isConnected) {
+            alert('Please connect your wallet to pay on Polygon');
             return;
         }
 
@@ -167,13 +165,7 @@ const RegisterDomain = () => {
         <div className="min-h-screen overflow-hidden" style={{ background: "var(--primary-gradient)" }}>
             <Navbar />
 
-            {wallet.providerType !== 'EVM' && (
-                <div className="max-w-7xl mx-auto px-6 mt-4">
-                    <div className="p-3 rounded bg-yellow-600/10 border border-yellow-600/20 text-yellow-300 text-sm">
-                        You are not connected with an EVM wallet. To pay on Polygon please connect MetaMask (Polygon) via the Wallet menu.
-                    </div>
-                </div>
-            )}
+
 
             <div className="max-w-7xl mx-auto px-6 pt-8 pb-12">
                 {/* Header */}
@@ -209,23 +201,13 @@ const RegisterDomain = () => {
 
                             <div className="flex gap-3 mb-4">
                                 <button
-                                    onClick={() => setPaymentMethod("MATIC")}
-                                    className={`px-6 py-2 border ${paymentMethod === "MATIC"
-                                        ? "border-[#2349E2] bg-[#2349E2]/20 text-white"
-                                        : "border-white/20 text-white/60"
-                                        } rounded flex items-center gap-2`}
-                                >
-                                    <span className="text-purple-400">◎</span> MATIC
-                                </button>
-
-                                <button
                                     onClick={() => setPaymentMethod("USDC")}
                                     className={`px-6 py-2 border ${paymentMethod === "USDC"
                                         ? "border-[#2349E2] bg-[#2349E2]/20 text-white"
                                         : "border-white/20 text-white/60"
-                                        } rounded`}
+                                        } rounded flex items-center gap-2`}
                                 >
-                                    <span className="text-blue-400">◎</span> USDC
+                                    <span className="text-blue-400">$</span> USDC
                                 </button>
 
                                 <button
@@ -234,11 +216,9 @@ const RegisterDomain = () => {
                                         ? "border-[#2349E2] bg-[#2349E2]/20 text-white"
                                         : "border-white/20 text-white/60"
                                         } rounded flex items-center gap-2`}
+                                    disabled
                                 >
-                                    Other Tokens
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24  24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
+                                    Other Tokens (Coming Soon)
                                 </button>
                             </div>
                         </div>
@@ -274,8 +254,8 @@ const RegisterDomain = () => {
                                         </div>
 
                                         <div className="text-right">
-                                            <p className="text-white text-sm">{parseFloat(domain.price).toFixed(4)} MATIC</p>
-                                            <p className="text-white/40 text-xs">~${(parseFloat(domain.price) * 0.8).toFixed(2)} USD</p>
+                                            <p className="text-white text-sm">{parseFloat(domain.price).toFixed(2)} USDC</p>
+                                            <p className="text-white/40 text-xs">~${parseFloat(domain.price).toFixed(2)} USD</p>
                                         </div>
 
                                         <div className="flex justify-end">
@@ -324,17 +304,11 @@ const RegisterDomain = () => {
 
                             {/* Subtotal */}
                             <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
-                                <span className="text-white/60">Subtotal</span>
+                                <span className="text-white/60">Price per year</span>
                                 <div className="text-right">
-                                    <p className="text-white">{subtotal.toFixed(4)} MATIC</p>
-                                    <p className="text-white/40 text-xs">~${(subtotal * 0.8).toFixed(2)} USD</p>
+                                    <p className="text-white">{subtotal.toFixed(2)} USDC</p>
+                                    <p className="text-white/40 text-xs">~${subtotal.toFixed(2)} USD</p>
                                 </div>
-                            </div>
-
-                            {/* Rent */}
-                            <div className="flex justify-between items-center mb-4">
-                                <span className="text-white/60">Rent</span>
-                                <p className="text-white">{rent.toFixed(4)} MATIC</p>
                             </div>
 
                             {/* Years Selector */}
@@ -354,7 +328,6 @@ const RegisterDomain = () => {
                                     >
                                         +
                                     </button>
-                                    <span className="text-white ml-2">{(years * 0.05).toFixed(4)} MATIC</span>
                                 </div>
                             </div>
 
@@ -362,7 +335,7 @@ const RegisterDomain = () => {
                             <div className="flex justify-between items-center pt-4 border-t border-white/10 mb-6">
                                 <span className="text-white font-semibold">Total</span>
                                 <div className="text-right">
-                                    <p className="text-white font-semibold">{total.toFixed(4)} MATIC</p>
+                                    <p className="text-white font-semibold">{total.toFixed(2)} USDC</p>
                                     <p className="text-white/40 text-xs">~${usdValue} USD</p>
                                 </div>
                             </div>
@@ -379,32 +352,28 @@ const RegisterDomain = () => {
                             {/* Confirmation panel (shown after preparing) */}
                             {confirming && confirmData && (
                                 <div className="mt-4 p-4 bg-white/5 border border-[#2349E2]/30 rounded">
-                                    <p className="text-white text-sm mb-3">Please confirm the following charges (will prompt your wallet):</p>
+                                    <p className="text-white text-sm mb-3">Please confirm the following charges (will prompt your wallet for USDC approval):</p>
                                     <div className="space-y-2 mb-3">
                                         {confirmData.domains.map((d, i) => (
                                             <div key={i} className="flex justify-between text-white text-sm">
                                                 <span>{d.name}</span>
-                                                <span>{parseFloat(d.price).toFixed(6)} MATIC</span>
+                                                <span>{parseFloat(d.price).toFixed(2)} USDC</span>
                                             </div>
                                         ))}
                                     </div>
 
                                     <div className="flex justify-between text-white/80 text-sm mb-2">
-                                        <span>Subtotal</span>
-                                        <span>{confirmData.subtotal.toFixed(6)} MATIC</span>
-                                    </div>
-                                    <div className="flex justify-between text-white/80 text-sm mb-2">
-                                        <span>Rent</span>
-                                        <span>{confirmData.rent.toFixed(6)} MATIC</span>
+                                        <span>Price per year</span>
+                                        <span>{confirmData.subtotal.toFixed(2)} USDC</span>
                                     </div>
                                     <div className="flex justify-between text-white/80 text-sm mb-4">
-                                        <span>Years cost</span>
-                                        <span>{confirmData.yearsCost.toFixed(6)} MATIC</span>
+                                        <span>Duration</span>
+                                        <span>{years} year{years > 1 ? 's' : ''}</span>
                                     </div>
 
                                     <div className="flex justify-between items-center mb-3">
                                         <strong className="text-white">Total</strong>
-                                        <strong className="text-white">{confirmData.total.toFixed(6)} MATIC</strong>
+                                        <strong className="text-white">{confirmData.total.toFixed(2)} USDC</strong>
                                     </div>
 
                                     <div className="flex gap-3">

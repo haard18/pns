@@ -58,7 +58,7 @@ export class TransactionController {
         metadata
       });
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
         data: transaction,
         message: 'Transaction recorded successfully'
@@ -73,7 +73,7 @@ export class TransactionController {
       });
     } catch (error) {
       logger.error('Error recording transaction:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
@@ -118,7 +118,7 @@ export class TransactionController {
         result.total = result.transactions.length;
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: result
       });
@@ -132,7 +132,7 @@ export class TransactionController {
       });
     } catch (error) {
       logger.error('Error fetching user transactions:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
@@ -164,7 +164,7 @@ export class TransactionController {
       
       const paginatedTransactions = transactions.slice(startIndex, endIndex);
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           transactions: paginatedTransactions,
@@ -183,7 +183,7 @@ export class TransactionController {
       });
     } catch (error) {
       logger.error('Error fetching domain transactions:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
@@ -224,7 +224,7 @@ export class TransactionController {
           user: `${tx.user.slice(0, 6)}...${tx.user.slice(-4)}` // Partially hide address
         }));
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           transactions: recentTransactions,
@@ -240,7 +240,7 @@ export class TransactionController {
       });
     } catch (error) {
       logger.error('Error fetching recent transactions:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
@@ -263,7 +263,7 @@ export class TransactionController {
         timestamp: new Date().toISOString()
       };
 
-      res.json({
+      return res.json({
         success: true,
         data: response
       });
@@ -271,7 +271,7 @@ export class TransactionController {
       logger.info('Transaction statistics fetched', { period });
     } catch (error) {
       logger.error('Error fetching transaction statistics:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
@@ -281,7 +281,7 @@ export class TransactionController {
   /**
    * DELETE /tx/test-data - Clear all data (testing only)
    */
-  clearTestData = async (req: Request, res: Response) => {
+  clearTestData = async (_req: Request, res: Response) => {
     try {
       // Only allow in development environment
       if (process.env.NODE_ENV === 'production') {
@@ -293,7 +293,7 @@ export class TransactionController {
 
       await this.domainService.clearAll();
 
-      res.json({
+      return res.json({
         success: true,
         message: 'All test data cleared successfully'
       });
@@ -301,7 +301,7 @@ export class TransactionController {
       logger.info('Test data cleared');
     } catch (error) {
       logger.error('Error clearing test data:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Internal server error'
       });

@@ -1,7 +1,8 @@
-import { WagmiProvider, createConfig, http } from "wagmi";
-import { polygon } from "wagmi/chains";
+import '@rainbow-me/rainbowkit/styles.css';
+import { getDefaultConfig, RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { WagmiProvider } from 'wagmi';
+import { polygon, polygonAmoy } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { injected } from "wagmi/connectors";
 import "./App.css";
 import Home from "./pages/Home";
 import { Routes, BrowserRouter as Router, Route } from "react-router-dom";
@@ -10,15 +11,13 @@ import Profile from "./pages/Profile";
 import RegisterDomain from "./pages/RegisterDomain";
 import Domain from "./pages/Domain";
 import ManageDomain from "./pages/ManageDomain";
-import { WalletProvider } from "./contexts/WalletContext";
 
-// Wagmi config for Polygon
-const wagmiConfig = createConfig({
-  chains: [polygon],
-  connectors: [injected()], // <-- THIS IS REQUIRED
-  transports: {
-    [polygon.id]: http(),
-  },
+// RainbowKit + Wagmi config for Polygon
+const config = getDefaultConfig({
+  appName: 'Polygon Name Service',
+  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID',
+  chains: [polygon, polygonAmoy],
+  ssr: false,
 });
 
 // React Query
@@ -26,9 +25,9 @@ const queryClient = new QueryClient();
 
 function App() {
   return (
-    <WagmiProvider config={wagmiConfig}>
+    <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <WalletProvider>
+        <RainbowKitProvider>
           <Router>
             <Routes>
               <Route path="/" element={<Home />} />
@@ -39,7 +38,7 @@ function App() {
               <Route path="/manage/:domainName" element={<ManageDomain />} />
             </Routes>
           </Router>
-        </WalletProvider>
+        </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

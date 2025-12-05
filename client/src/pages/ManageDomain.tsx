@@ -3,14 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import { useDomain } from "../hooks/useDomain";
-import { useWallet } from "../contexts/WalletContext";
+import { useAccount } from 'wagmi';
 import { formatExpiration } from "../lib/namehash";
 
 const ManageDomain = () => {
   const { domainName } = useParams<{ domainName: string }>();
   const navigate = useNavigate();
   const { renew, getDomainDetails, setTextRecord, getTextRecord, domain } = useDomain();
-  const { address } = useWallet();
+  const { address } = useAccount();
   
   const [activeTab, setActiveTab] = useState<"records" | "subdomains" | "permissions">("records");
   const [domainDetails, setDomainDetails] = useState<any | null>(null);
