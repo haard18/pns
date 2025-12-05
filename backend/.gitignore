@@ -9,9 +9,10 @@ build/
 
 # Environment variables
 .env
+*.env
 .env.local
 .env.*.local
-
+.env.anvil
 # Logs
 logs/
 *.log

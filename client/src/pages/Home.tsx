@@ -10,6 +10,7 @@ import { cube, graph, line } from "../assets/Community/index";
 import logo from "../assets/Logo.png";
 import connect from "../assets/Connect.svg";
 import { x, tg, discord } from "../assets/footer";
+import AutoCarousel from "../components/Carousel";
 
 // Animation variants
 export const fadeInUp = {
@@ -513,94 +514,7 @@ const Home = () => {
           </motion.div>
         </div>
       </section>
-      <section
-        className="py-24 px-6"
-        style={{ background: "var(--accent-soft)" }}
-      >
-        <motion.div
-          className="max-w-6xl p-6 border border-[#2349E2] mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.7 }}
-        >
-          {/* LEFT TEXT BLOCK */}
-          <motion.div
-            initial={{ opacity: 0, x: -40 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <motion.p
-              className="text-lg tracking-widest text-black mb-3"
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-            >
-              [ CONNECT ]
-            </motion.p>
-
-            <motion.h2
-              className="text-4xl text-black font-semibold mb-6"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-            >
-              Let's Connect.
-            </motion.h2>
-
-            <motion.p
-              className="text-black leading-relaxed max-w-md mb-8"
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              This isn't just another platform — it's a growing network of
-              thinkers, builders, and visionaries shaping how the world
-              understands data and probability. Join us to collaborate, share
-              insights, and co-create the next wave of predictive innovation
-              on-chain.
-            </motion.p>
-
-            {/* CTA BUTTON */}
-            <motion.button
-              className="px-6 py-3 mt-15 bg-(--primary) hover:bg-(--primary-dark) text-white font-medium"
-              style={{ backgroundColor: "var(--primary)" }}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              whileHover={{
-                scale: 1.05,
-                boxShadow: "0 10px 25px rgba(0, 0, 0, 0.2)",
-              }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Join the Community →
-            </motion.button>
-          </motion.div>
-
-          {/* RIGHT IMAGE */}
-          <motion.div
-            className="flex justify-center md:justify-end"
-            initial={{ opacity: 0, x: 40 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <motion.img
-              src={connect}
-              alt="Connect illustration"
-              className="md:max-w-lg object-contain"
-              whileHover={{ y: -10 }}
-              transition={{ duration: 0.3 }}
-            />
-          </motion.div>
-        </motion.div>
-      </section>
+      <AutoCarousel />
       <footer className="bg-[#020215] py-16 px-10">
         {/* FULL-WIDTH GRID */}
         <motion.div

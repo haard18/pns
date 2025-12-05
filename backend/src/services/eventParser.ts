@@ -218,16 +218,45 @@ export class EventParser {
 
   /**
    * Parse Transfer event (from NFT) from decoded args
+   * The tokenId is a uint256 that needs to be converted to bytes32 hex format
+   * to match the nameHash stored in our database
    */
   parseTransfer(log: any, args: any): DomainEvent {
+    // Convert tokenId (uint256) to bytes32 hex format
+    // The tokenId is the numeric value of the nameHash
+    const tokenIdBigInt = BigInt(args.tokenId.toString());
+    const nameHash = '0x' + tokenIdBigInt.toString(16).padStart(64, '0');
+    
+    // Determine if this is a mint (from zero address) or a real transfer
+    const fromAddress = args.from;
+    const toAddress = args.to;
+    const isFromZero = fromAddress === ethers.ZeroAddress || fromAddress === '0x0000000000000000000000000000000000000000';
+    const isToZero = toAddress === ethers.ZeroAddress || toAddress === '0x0000000000000000000000000000000000000000';
+    
+    // Log for debugging
+    logger.debug('Transfer event parsed', {
+      tokenId: args.tokenId.toString(),
+      nameHash,
+      from: fromAddress,
+      to: toAddress,
+      isMint: isFromZero,
+      isBurn: isToZero,
+    });
+    
     return {
       eventName: 'Transfer',
       blockNumber: log.blockNumber,
       transactionHash: log.transactionHash,
       address: log.address,
-      nameHash: args.tokenId.toString(), // NFT tokenId corresponds to nameHash
-      owner: args.to,
-      args: args,
+      nameHash: nameHash,
+      owner: toAddress, // New owner is the 'to' address
+      args: {
+        ...args,
+        from: fromAddress,
+        to: toAddress,
+        isMint: isFromZero,
+        isBurn: isToZero,
+      },
     };
   }
 

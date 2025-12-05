@@ -421,9 +421,39 @@ export class EventIndexer {
   }
 
   /**
-   * Handle Transfer event
+   * Handle Transfer event (NFT Transfer)
+   * This handles ownership changes when NFT is transferred
+   * Skip mints (from zero address) as they're handled by NameRegistered
+   * Skip burns (to zero address) as they indicate domain deletion
    */
   private async handleTransfer(event: DomainEvent): Promise<void> {
+    const isMint = event.args?.isMint;
+    const isBurn = event.args?.isBurn;
+    
+    // Skip mints - handled by NameRegistered event
+    if (isMint) {
+      logger.debug('Skipping Transfer event (mint)', {
+        nameHash: event.nameHash,
+        to: event.owner,
+      });
+      return;
+    }
+    
+    // Log burns but still process (domain expired/burned)
+    if (isBurn) {
+      logger.info('Transfer to zero address (burn)', {
+        nameHash: event.nameHash,
+      });
+      // Optionally mark domain as burned/expired in database
+      // For now, we'll still update owner to zero address
+    }
+    
+    logger.info('Processing domain transfer', {
+      nameHash: event.nameHash,
+      newOwner: event.owner,
+      blockNumber: event.blockNumber,
+    });
+    
     await database.updateDomainOwner({
       nameHash: event.nameHash,
       owner: event.owner!,

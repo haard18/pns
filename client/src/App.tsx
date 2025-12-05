@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 import RegisterDomain from "./pages/RegisterDomain";
 import Domain from "./pages/Domain";
 import ManageDomain from "./pages/ManageDomain";
+import Marketplace from "./pages/Marketplace";
 
 // RainbowKit + Wagmi config for Polygon
 const config = getDefaultConfig({
@@ -36,6 +37,7 @@ function App() {
               <Route path="/register" element={<RegisterDomain />} />
               <Route path="/domains" element={<Domain />} />
               <Route path="/manage/:domainName" element={<ManageDomain />} />
+              <Route path="/marketplace" element={<Marketplace />} />
             </Routes>
           </Router>
         </RainbowKitProvider>

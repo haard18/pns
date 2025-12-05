@@ -435,6 +435,49 @@ class Database {
     );
     return result.rows[0] || null;
   }
+
+  /**
+   * Get text records for a domain by nameHash
+   */
+  async getTextRecords(nameHash: string): Promise<any[]> {
+    const result = await this.query(
+      'SELECT * FROM text_records WHERE name_hash = $1 ORDER BY key ASC',
+      [nameHash]
+    );
+    return result.rows;
+  }
+
+  /**
+   * Get address records for a domain by nameHash
+   */
+  async getAddressRecords(nameHash: string): Promise<any[]> {
+    const result = await this.query(
+      'SELECT * FROM address_records WHERE name_hash = $1 ORDER BY coin_type ASC',
+      [nameHash]
+    );
+    return result.rows;
+  }
+
+  /**
+   * Get full domain info including text and address records
+   */
+  async getDomainWithRecords(nameHash: string): Promise<{
+    domain: any;
+    textRecords: any[];
+    addressRecords: any[];
+  } | null> {
+    const domain = await this.getDomainByNameHash(nameHash);
+    if (!domain) return null;
+
+    const textRecords = await this.getTextRecords(nameHash);
+    const addressRecords = await this.getAddressRecords(nameHash);
+
+    return {
+      domain,
+      textRecords,
+      addressRecords,
+    };
+  }
 }
 
 export default new Database();

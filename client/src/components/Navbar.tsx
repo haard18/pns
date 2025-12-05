@@ -83,6 +83,14 @@ export default function Navbar() {
             Search
           </motion.span>
         </Link>
+        <Link to="/marketplace">
+          <motion.span 
+            whileHover={{ scale: 1.05 }} 
+            className={`cursor-pointer transition ${isActive('/marketplace') ? 'text-[#2349E2]' : 'hover:text-[#2349E2]'}`}
+          >
+            Marketplace
+          </motion.span>
+        </Link>
         <Link to="/domains">
           <motion.span 
             whileHover={{ scale: 1.05 }} 
@@ -131,6 +139,9 @@ export default function Navbar() {
         >
           <Link to="/search" onClick={() => setIsMenuOpen(false)}>
             <motion.span whileHover={{ x: 8 }} className="block text-xl py-2">Search Domains</motion.span>
+          </Link>
+          <Link to="/marketplace" onClick={() => setIsMenuOpen(false)}>
+            <motion.span whileHover={{ x: 8 }} className="block text-xl py-2">Marketplace</motion.span>
           </Link>
           <Link to="/domains" onClick={() => setIsMenuOpen(false)}>
             <motion.span whileHover={{ x: 8 }} className="block text-xl py-2">My Domains</motion.span>
