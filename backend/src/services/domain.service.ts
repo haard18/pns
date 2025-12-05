@@ -48,7 +48,7 @@ export class DomainService {
       };
 
       this.domains.set(domain.nameHash, domainRecord);
-      
+
       logger.info('Domain record updated', {
         nameHash: domain.nameHash,
         name: domain.name,
@@ -85,7 +85,7 @@ export class DomainService {
       domain.updatedAt = new Date();
 
       this.domains.set(nameHash, domain);
-      
+
       logger.info('Domain expiration updated', {
         nameHash,
         expiration,
@@ -119,7 +119,7 @@ export class DomainService {
       domain.updatedAt = new Date();
 
       this.domains.set(nameHash, domain);
-      
+
       logger.info('Domain owner updated', {
         nameHash,
         owner,
@@ -153,7 +153,7 @@ export class DomainService {
       domain.updatedAt = new Date();
 
       this.domains.set(nameHash, domain);
-      
+
       logger.info('Domain resolver updated', {
         nameHash,
         resolver,
@@ -190,7 +190,7 @@ export class DomainService {
    */
   async getDomainsByOwner(owner: string): Promise<DomainRecord[]> {
     const ownedDomains: DomainRecord[] = [];
-    
+
     for (const domain of this.domains.values()) {
       if (domain.owner.toLowerCase() === owner.toLowerCase()) {
         ownedDomains.push(domain);
@@ -214,7 +214,7 @@ export class DomainService {
     const total = domains.length;
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    
+
     const paginatedDomains = domains
       .sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0))
       .slice(startIndex, endIndex);
@@ -233,7 +233,7 @@ export class DomainService {
   async searchDomains(query: string, limit: number = 50): Promise<DomainRecord[]> {
     const results: DomainRecord[] = [];
     const lowerQuery = query.toLowerCase();
-    
+
     for (const domain of this.domains.values()) {
       if (domain.name.toLowerCase().includes(lowerQuery)) {
         results.push(domain);
@@ -245,10 +245,10 @@ export class DomainService {
       // Prioritize exact matches and shorter names
       const aExact = a.name.toLowerCase() === lowerQuery;
       const bExact = b.name.toLowerCase() === lowerQuery;
-      
+
       if (aExact && !bExact) return -1;
       if (!aExact && bExact) return 1;
-      
+
       return a.name.length - b.name.length;
     });
   }
@@ -265,7 +265,7 @@ export class DomainService {
       };
 
       this.transactions.push(txRecord);
-      
+
       logger.info('Transaction recorded', {
         user: transaction.user,
         action: transaction.action,
@@ -300,7 +300,7 @@ export class DomainService {
     const total = userTxs.length;
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    
+
     const paginatedTxs = userTxs
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(startIndex, endIndex);
@@ -333,7 +333,7 @@ export class DomainService {
   }> {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+
     const registrationsToday = this.transactions.filter(
       tx => tx.action === 'register' && tx.timestamp >= todayStart
     ).length;
@@ -367,7 +367,7 @@ export class DomainService {
   async getExpiredDomains(): Promise<DomainRecord[]> {
     const now = Math.floor(Date.now() / 1000);
     const expiredDomains: DomainRecord[] = [];
-    
+
     for (const domain of this.domains.values()) {
       if (domain.expiration <= now) {
         expiredDomains.push(domain);
@@ -384,7 +384,7 @@ export class DomainService {
     const now = Math.floor(Date.now() / 1000);
     const futureTime = now + (days * 24 * 60 * 60);
     const expiringDomains: DomainRecord[] = [];
-    
+
     for (const domain of this.domains.values()) {
       if (domain.expiration > now && domain.expiration <= futureTime) {
         expiringDomains.push(domain);

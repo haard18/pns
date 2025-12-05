@@ -193,6 +193,37 @@ export const PNSRegistryABI = [
     ],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes32", "name": "nameHash", "type": "bytes32" },
+      { "internalType": "address", "name": "newOwner", "type": "address" }
+    ],
+    "name": "transferName",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes32", "name": "nameHash", "type": "bytes32" },
+      { "internalType": "address", "name": "resolver", "type": "address" }
+    ],
+    "name": "setNameResolver",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes32", "name": "nameHash", "type": "bytes32" }
+    ],
+    "name": "getResolver",
+    "outputs": [
+      { "internalType": "address", "name": "", "type": "address" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ] as const;
 

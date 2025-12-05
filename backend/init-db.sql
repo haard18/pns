@@ -11,8 +11,7 @@ CREATE TABLE IF NOT EXISTS domains (
     last_updated_block BIGINT NOT NULL,
     last_updated_tx VARCHAR(66) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(name)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create event logs table

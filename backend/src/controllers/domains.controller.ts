@@ -33,13 +33,13 @@ export class DomainsController {
       }
 
       const domains = await this.domainService.getDomainsByOwner(address);
-      
+
       // Apply pagination
       const pageNum = parseInt(page as string) || 1;
       const limitNum = Math.min(parseInt(limit as string) || 50, 100); // Max 100 per page
       const startIndex = (pageNum - 1) * limitNum;
       const endIndex = startIndex + limitNum;
-      
+
       const paginatedDomains = domains.slice(startIndex, endIndex);
 
       logger.info('Domains fetched by owner', {
@@ -82,7 +82,7 @@ export class DomainsController {
       }
 
       let domain;
-      
+
       // Check if it's a hash (starts with 0x and 66 characters) or name
       if (nameOrHash.startsWith('0x') && nameOrHash.length === 66) {
         domain = await this.domainService.getDomainByNameHash(nameOrHash);
@@ -166,7 +166,7 @@ export class DomainsController {
       const limitNum = Math.min(parseInt(limit as string) || 50, 100);
 
       const expiringDomains = await this.domainService.getExpiringDomains(daysNum);
-      
+
       // Apply pagination
       const startIndex = (pageNum - 1) * limitNum;
       const endIndex = startIndex + limitNum;
@@ -204,7 +204,7 @@ export class DomainsController {
       const limitNum = Math.min(parseInt(limit as string) || 50, 100);
 
       const expiredDomains = await this.domainService.getExpiredDomains();
-      
+
       // Apply pagination
       const startIndex = (pageNum - 1) * limitNum;
       const endIndex = startIndex + limitNum;
@@ -269,10 +269,10 @@ export class DomainsController {
         data: result
       });
 
-      logger.info('All domains fetched', { 
-        page: pageNum, 
-        limit: limitNum, 
-        total: result.total 
+      logger.info('All domains fetched', {
+        page: pageNum,
+        limit: limitNum,
+        total: result.total
       });
     } catch (error) {
       logger.error('Error fetching all domains:', error);

@@ -150,6 +150,7 @@ export class EventIndexer {
 
   /**
    * Process a batch of blocks
+   * Optimized to make sequential requests to avoid RPC rate limits
    */
   private async processBatch(range: ScanRange): Promise<void> {
     const contractAddresses = {
@@ -161,49 +162,71 @@ export class EventIndexer {
     };
 
     const eventFilters = this.eventParser.getEventFilters(contractAddresses);
+    const delayBetweenRequests = 200; // 200ms delay between contract queries
 
     try {
-      // Fetch logs from all contracts with configured chunk size
-      // Registrar is the KEY contract - it emits events with plaintext names!
-      const [registryLogs, registrarLogs, controllerLogs, resolverLogs, nftLogs] = await Promise.all([
-        this.eventParser.fetchLogs(
-          contractAddresses.registry,
-          eventFilters.registry,
-          range.fromBlock,
-          range.toBlock,
-          Config.indexer.logChunkSize
-        ),
-        this.eventParser.fetchLogs(
-          contractAddresses.registrar,
-          eventFilters.registrar,
-          range.fromBlock,
-          range.toBlock,
-          Config.indexer.logChunkSize
-        ),
-        this.eventParser.fetchLogs(
-          contractAddresses.controller,
-          eventFilters.controller,
-          range.fromBlock,
-          range.toBlock,
-          Config.indexer.logChunkSize
-        ),
-        this.eventParser.fetchLogs(
-          contractAddresses.resolver,
-          eventFilters.resolver,
-          range.fromBlock,
-          range.toBlock,
-          Config.indexer.logChunkSize
-        ),
-        this.eventParser.fetchLogs(
-          contractAddresses.domainNFT,
-          eventFilters.domainNFT,
-          range.fromBlock,
-          range.toBlock,
-          Config.indexer.logChunkSize
-        ),
-      ]);
+      // Fetch logs SEQUENTIALLY to avoid overwhelming the RPC
+      // Priority order: Registrar (has plaintext names) > Registry > Controller > NFT > Resolver
+      
+      const allLogs: any[] = [];
+      
+      // 1. Registrar - MOST IMPORTANT (emits NameRegistered with plaintext names)
+      const registrarLogs = await this.eventParser.fetchLogs(
+        contractAddresses.registrar,
+        eventFilters.registrar,
+        range.fromBlock,
+        range.toBlock,
+        Config.indexer.logChunkSize
+      );
+      allLogs.push(...registrarLogs);
+      
+      if (registrarLogs.length > 0) {
+        logger.debug('Fetched registrar logs', { count: registrarLogs.length });
+      }
+      await this.delay(delayBetweenRequests);
 
-      const allLogs = [...registryLogs, ...registrarLogs, ...controllerLogs, ...resolverLogs, ...nftLogs];
+      // 2. Controller - Also emits registration events
+      const controllerLogs = await this.eventParser.fetchLogs(
+        contractAddresses.controller,
+        eventFilters.controller,
+        range.fromBlock,
+        range.toBlock,
+        Config.indexer.logChunkSize
+      );
+      allLogs.push(...controllerLogs);
+      await this.delay(delayBetweenRequests);
+
+      // 3. Registry - Ownership and resolver updates
+      const registryLogs = await this.eventParser.fetchLogs(
+        contractAddresses.registry,
+        eventFilters.registry,
+        range.fromBlock,
+        range.toBlock,
+        Config.indexer.logChunkSize
+      );
+      allLogs.push(...registryLogs);
+      await this.delay(delayBetweenRequests);
+
+      // 4. NFT - Transfer events
+      const nftLogs = await this.eventParser.fetchLogs(
+        contractAddresses.domainNFT,
+        eventFilters.domainNFT,
+        range.fromBlock,
+        range.toBlock,
+        Config.indexer.logChunkSize
+      );
+      allLogs.push(...nftLogs);
+      await this.delay(delayBetweenRequests);
+
+      // 5. Resolver - Text and address records (least priority)
+      const resolverLogs = await this.eventParser.fetchLogs(
+        contractAddresses.resolver,
+        eventFilters.resolver,
+        range.fromBlock,
+        range.toBlock,
+        Config.indexer.logChunkSize
+      );
+      allLogs.push(...resolverLogs);
 
       // Sort logs by block number and transaction index
       allLogs.sort((a, b) => {
@@ -489,6 +512,13 @@ export class EventIndexer {
       logger.error('Error saving last processed block to Redis:', error);
       throw error;
     }
+  }
+
+  /**
+   * Helper to add delay between operations
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**

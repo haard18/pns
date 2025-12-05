@@ -33,12 +33,12 @@ export class Config {
     deploymentBlock: parseInt(process.env.DEPLOYMENT_BLOCK || '79790269', 10)
   };
 
-  // Indexer configuration
+  // Indexer configuration - optimized for public RPC rate limits
   static readonly indexer = {
-    scanIntervalMs: parseInt(process.env.INDEXER_SCAN_INTERVAL_MS || '30000', 10), // 30 seconds
-    batchSize: parseInt(process.env.INDEXER_BATCH_SIZE || '500', 10), // Blocks per batch
-    logChunkSize: parseInt(process.env.INDEXER_LOG_CHUNK_SIZE || '2000', 10), // eth_getLogs chunk size
-    maxRetries: parseInt(process.env.INDEXER_MAX_RETRIES || '3', 10),
+    scanIntervalMs: parseInt(process.env.INDEXER_SCAN_INTERVAL_MS || '60000', 10), // 60 seconds (reduced frequency)
+    batchSize: parseInt(process.env.INDEXER_BATCH_SIZE || '200', 10), // Smaller batches to avoid rate limits
+    logChunkSize: parseInt(process.env.INDEXER_LOG_CHUNK_SIZE || '500', 10), // Smaller chunks for eth_getLogs
+    maxRetries: parseInt(process.env.INDEXER_MAX_RETRIES || '5', 10), // More retries with backoff
     enabled: process.env.INDEXER_ENABLED !== 'false' // Enabled by default
   };
 

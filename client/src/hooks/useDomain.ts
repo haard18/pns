@@ -38,6 +38,7 @@ export interface UseDomainActions {
   getTextRecord: (name: string, key: string) => Promise<string>;
   getAddressRecord: (name: string, coinType?: number) => Promise<string>;
   getUserDomains: (userAddress: string) => Promise<DomainInfo[]>;
+  transferDomain: (name: string, newOwner: string) => Promise<void>;
   reset: () => void;
 }
 
@@ -404,6 +405,54 @@ export function useDomain(): UseDomainState & UseDomainActions {
     }
   }, []);
 
+  /**
+   * Transfer domain ownership to a new address
+   */
+  const transferDomain = useCallback(async (name: string, newOwner: string) => {
+    if (!address) {
+      setError('Please connect your wallet');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await contracts.transferDomain(name, newOwner);
+
+      if (result.success && result.txHash) {
+        // Record transaction in backend
+        try {
+          await fetch('/api/tx/record', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              user: address,
+              action: 'transferDomain',
+              domain: name,
+              txHash: result.txHash,
+              metadata: { newOwner },
+              timestamp: new Date().toISOString(),
+            }),
+          });
+        } catch (backendError) {
+          console.warn('Failed to record transaction in backend:', backendError);
+        }
+      } else {
+        setError(result.error || 'Failed to transfer domain');
+        throw new Error(result.error || 'Failed to transfer domain');
+      }
+    } catch (error: any) {
+      console.error('Transfer domain error:', error);
+      setError(error.message || 'Failed to transfer domain');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [address, contracts]);
+
   return {
     // State
     domain,
@@ -427,6 +476,7 @@ export function useDomain(): UseDomainState & UseDomainActions {
     getTextRecord,
     getAddressRecord,
     getUserDomains,
+    transferDomain,
     reset,
   };
 }

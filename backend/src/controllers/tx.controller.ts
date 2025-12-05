@@ -155,13 +155,13 @@ export class TransactionController {
       }
 
       const transactions = await this.domainService.getDomainTransactions(domain);
-      
+
       // Apply pagination
       const pageNum = parseInt(page as string) || 1;
       const limitNum = Math.min(parseInt(limit as string) || 50, 100);
       const startIndex = (pageNum - 1) * limitNum;
       const endIndex = startIndex + limitNum;
-      
+
       const paginatedTransactions = transactions.slice(startIndex, endIndex);
 
       return res.json({
@@ -255,7 +255,7 @@ export class TransactionController {
       const { period = '24h' } = req.query;
 
       const stats = await this.domainService.getStatistics();
-      
+
       // You can extend this to provide more detailed stats based on period
       const response = {
         ...stats,

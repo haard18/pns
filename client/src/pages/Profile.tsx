@@ -1,17 +1,17 @@
-// DomainProfile.jsx
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAccount } from 'wagmi';
+import { useAccount } from "wagmi";
+import { useNavigate } from "react-router-dom";
 import { useDomain } from "../hooks/useDomain";
 import Navbar from "../components/Navbar";
 
-/**
- * Uses the uploaded image at:
- * /mnt/data/b8af53d4-b285-4c75-84ea-bc37be220d62.png
- *
- * Keep your :root CSS vars (--primary-gradient, --text-light, etc.) in App.css
- */
-
+// Import social icons
+import internetIcon from "../assets/internet.svg";
+import githubIcon from "../assets/github.svg";
+import discordIcon from "../assets/discord.svg";
+import telegramIcon from "../assets/tg.svg";
+import twitterIcon from "../assets/x.svg";
+import emailIcon from "../assets/email.svg";
 const rightTabs = ["Domain Settings", "Subdomains", "Advanced", "Activity"];
 
 const container = {
@@ -30,14 +30,22 @@ const scaleIn = {
 
 export default function DomainProfile() {
   const { address } = useAccount();
-  const { getUserDomains, setTextRecord, getTextRecord, setAddressRecord, getAddressRecord } = useDomain();
-  
+  const navigate = useNavigate();
+  const {
+    getUserDomains,
+    setTextRecord,
+    getTextRecord,
+    setAddressRecord,
+    getAddressRecord,
+    transferDomain,
+  } = useDomain();
+
   const [activeTab, setActiveTab] = useState("Domain Settings");
   const [showSocialsModal, setShowSocialsModal] = useState(false);
   const [showAddressesModal, setShowAddressesModal] = useState(false);
   const [showOtherRecordsModal, setShowOtherRecordsModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [, setUserDomains] = useState<any[]>([]);
+  const [userDomains, setUserDomains] = useState<any[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -50,7 +58,6 @@ export default function DomainProfile() {
         setUserDomains(domains);
         if (domains.length > 0) {
           setSelectedDomain(domains[0]);
-          // Load existing records for the first domain
           loadExistingRecords(domains[0].name);
         }
       }
@@ -61,30 +68,31 @@ export default function DomainProfile() {
   // Load existing records from the resolver
   const loadExistingRecords = async (domainName: string) => {
     try {
-      const [website, twitter, telegram, discord, email, github] = await Promise.all([
-        getTextRecord(domainName, 'url'),
-        getTextRecord(domainName, 'com.twitter'),
-        getTextRecord(domainName, 'org.telegram'),
-        getTextRecord(domainName, 'com.discord'),
-        getTextRecord(domainName, 'email'),
-        getTextRecord(domainName, 'com.github'),
-      ]);
-      
+      const [website, twitter, telegram, discord, email, github] =
+        await Promise.all([
+          getTextRecord(domainName, "url"),
+          getTextRecord(domainName, "com.twitter"),
+          getTextRecord(domainName, "org.telegram"),
+          getTextRecord(domainName, "com.discord"),
+          getTextRecord(domainName, "email"),
+          getTextRecord(domainName, "com.github"),
+        ]);
+
       setSocials({ website, twitter, telegram, discord, email, github });
-      
+
       // Load polygon address record (coinType 60 for ETH-compatible)
       const polygonAddr = await getAddressRecord(domainName, 60);
       setPolygonAddress(polygonAddr);
-      
+
       // Load other records
       const [ipfs, arwv, ipns] = await Promise.all([
-        getTextRecord(domainName, 'contentHash'),
-        getTextRecord(domainName, 'arweave'),
-        getTextRecord(domainName, 'ipns'),
+        getTextRecord(domainName, "contentHash"),
+        getTextRecord(domainName, "arweave"),
+        getTextRecord(domainName, "ipns"),
       ]);
-      setOtherRecords(prev => ({ ...prev, ipfs, arwv, ipns }));
+      setOtherRecords((prev) => ({ ...prev, ipfs, arwv, ipns }));
     } catch (err) {
-      console.error('Error loading existing records:', err);
+      console.error("Error loading existing records:", err);
     }
   };
 
@@ -111,42 +119,44 @@ export default function DomainProfile() {
   const [transferConfirmed, setTransferConfirmed] = useState(false);
 
   const handleSocialChange = (field: string, value: string) => {
-    setSocials(prev => ({ ...prev, [field]: value }));
+    setSocials((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSaveSocials = async () => {
     if (!selectedDomain?.name) {
-      setSaveError('No domain selected');
+      setSaveError("No domain selected");
       return;
     }
-    
+
     setIsSaving(true);
     setSaveError(null);
     setSaveSuccess(null);
-    
+
     try {
       // Map social fields to standard text record keys
       const recordsToSave = [
-        { key: 'url', value: socials.website },
-        { key: 'com.twitter', value: socials.twitter },
-        { key: 'org.telegram', value: socials.telegram },
-        { key: 'com.discord', value: socials.discord },
-        { key: 'email', value: socials.email },
-        { key: 'com.github', value: socials.github },
-      ].filter(r => r.value); // Only save non-empty values
-      
+        { key: "url", value: socials.website },
+        { key: "com.twitter", value: socials.twitter },
+        { key: "org.telegram", value: socials.telegram },
+        { key: "com.discord", value: socials.discord },
+        { key: "email", value: socials.email },
+        { key: "com.github", value: socials.github },
+      ].filter((r) => r.value); // Only save non-empty values
+
       for (const record of recordsToSave) {
         await setTextRecord(selectedDomain.name, record.key, record.value);
       }
-      
-      setSaveSuccess('Social records saved successfully! Transaction(s) submitted.');
+
+      setSaveSuccess(
+        "Social records saved successfully! Transaction(s) submitted."
+      );
       setTimeout(() => {
         setShowSocialsModal(false);
         setSaveSuccess(null);
       }, 2000);
     } catch (err: any) {
-      console.error('Error saving socials:', err);
-      setSaveError(err.message || 'Failed to save social records');
+      console.error("Error saving socials:", err);
+      setSaveError(err.message || "Failed to save social records");
     } finally {
       setIsSaving(false);
     }
@@ -154,25 +164,25 @@ export default function DomainProfile() {
 
   const handleSaveAddress = async () => {
     if (!selectedDomain?.name || !polygonAddress) {
-      setSaveError('Please enter an address');
+      setSaveError("Please enter an address");
       return;
     }
-    
+
     setIsSaving(true);
     setSaveError(null);
     setSaveSuccess(null);
-    
+
     try {
       // CoinType 60 = Ethereum/Polygon address
       await setAddressRecord(selectedDomain.name, 60, polygonAddress);
-      setSaveSuccess('Address record saved! Transaction submitted.');
+      setSaveSuccess("Address record saved! Transaction submitted.");
       setTimeout(() => {
         setShowAddressesModal(false);
         setSaveSuccess(null);
       }, 2000);
     } catch (err: any) {
-      console.error('Error saving address:', err);
-      setSaveError(err.message || 'Failed to save address record');
+      console.error("Error saving address:", err);
+      setSaveError(err.message || "Failed to save address record");
     } finally {
       setIsSaving(false);
     }
@@ -181,64 +191,86 @@ export default function DomainProfile() {
   const handleVerifyAddress = () => {
     // Verify by checking if address matches connected wallet
     if (polygonAddress.toLowerCase() === address?.toLowerCase()) {
-      setSaveSuccess('Address matches connected wallet ✓');
+      setSaveSuccess("Address matches connected wallet ✓");
     } else {
-      setSaveError('Address does not match connected wallet');
+      setSaveError("Address does not match connected wallet");
     }
   };
 
   const handleOtherRecordChange = (field: string, value: string) => {
-    setOtherRecords(prev => ({ ...prev, [field]: value }));
+    setOtherRecords((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSaveOtherRecords = async () => {
     if (!selectedDomain?.name) {
-      setSaveError('No domain selected');
+      setSaveError("No domain selected");
       return;
     }
-    
+
     setIsSaving(true);
     setSaveError(null);
     setSaveSuccess(null);
-    
+
     try {
       const recordsToSave = [
-        { key: 'contentHash', value: otherRecords.ipfs },
-        { key: 'arweave', value: otherRecords.arwv },
-        { key: 'ipns', value: otherRecords.ipns },
-        { key: 'dns.A', value: otherRecords.dnsA },
-        { key: 'dns.AAAA', value: otherRecords.dnsAAAA },
-        { key: 'dns.CNAME', value: otherRecords.dnsCNAME },
-      ].filter(r => r.value);
-      
+        { key: "contentHash", value: otherRecords.ipfs },
+        { key: "arweave", value: otherRecords.arwv },
+        { key: "ipns", value: otherRecords.ipns },
+        { key: "dns.A", value: otherRecords.dnsA },
+        { key: "dns.AAAA", value: otherRecords.dnsAAAA },
+        { key: "dns.CNAME", value: otherRecords.dnsCNAME },
+        { key: "dns.TXT", value: otherRecords.dnsTXT },
+      ].filter((r) => r.value);
+
       for (const record of recordsToSave) {
         await setTextRecord(selectedDomain.name, record.key, record.value);
       }
-      
-      setSaveSuccess('Records saved successfully! Transaction(s) submitted.');
+
+      setSaveSuccess("Records saved successfully! Transaction(s) submitted.");
       setTimeout(() => {
         setShowOtherRecordsModal(false);
         setSaveSuccess(null);
       }, 2000);
     } catch (err: any) {
-      console.error('Error saving other records:', err);
-      setSaveError(err.message || 'Failed to save records');
+      console.error("Error saving other records:", err);
+      setSaveError(err.message || "Failed to save records");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleSaveTransferAddress = () => {
-    console.log("Saving transfer address:", transferAddress);
-  };
-
-  const handleConfirmTransfer = () => {
+  const handleConfirmTransfer = async () => {
     if (!transferConfirmed) {
-      alert("Please confirm that you understand the risks");
+      setSaveError("Please confirm that you understand the risks");
       return;
     }
-    console.log("Transferring domain to:", transferAddress);
-    setShowTransferModal(false);
+
+    if (!transferAddress || !selectedDomain?.name) {
+      setSaveError("Please enter a valid address");
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(null);
+
+    try {
+      await transferDomain(selectedDomain.name, transferAddress);
+      setSaveSuccess("Transfer initiated! Please confirm in your wallet.");
+      setTimeout(() => {
+        setShowTransferModal(false);
+        setSaveSuccess(null);
+        // Reload domains after transfer
+        if (address) {
+          getUserDomains(address).then(setUserDomains);
+        }
+      }, 2000);
+    } catch (err: any) {
+      console.error("Error transferring domain:", err);
+      setSaveError(err.message || "Failed to transfer domain");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Build sidebar items dynamically based on loaded records
@@ -249,21 +281,82 @@ export default function DomainProfile() {
       isEditable: true,
       content: (
         <div className="flex gap-3">
-          {[
-            socials.website ? "🌐" : "🌐",
-            socials.twitter ? "✖" : "✖",
-            socials.discord ? "🎮" : "🎮",
-            socials.telegram ? "✈️" : "✈️",
-            socials.github ? "🐱" : "🐱",
-            socials.email ? "✉️" : "✉️"
-          ].map((c, i) => (
-            <div
-              key={i}
-              className="w-10 h-10 rounded-md border border-[rgba(255,255,255,0.06)] flex items-center justify-center text-lg"
-            >
-              {c}
-            </div>
-          ))}
+          <div
+            className={`w-10 h-10 rounded-md  ${
+              socials.website
+                ? "border-blue-500 bg-blue-500/10"
+                : "border-[rgba(255,255,255,0.06)]"
+            } flex items-center justify-center text-lg transition-all`}
+            title="Website"
+          >
+            <img
+              src={internetIcon}
+              alt="Website"
+              className="w-5 h-5 opacity-70"
+            />
+          </div>
+          <div
+            className={`w-10 h-10 rounded-md  ${
+              socials.twitter
+                ? "border-blue-500 bg-blue-500/10"
+                : "border-[rgba(255,255,255,0.06)]"
+            } flex items-center justify-center text-lg transition-all`}
+            title="Twitter"
+          >
+            <img
+              src={twitterIcon}
+              alt="Twitter"
+              className="w-5 h-5 opacity-70"
+            />
+          </div>
+          <div
+            className={`w-10 h-10 rounded-md  ${
+              socials.discord
+                ? "border-blue-500 bg-blue-500/10"
+                : "border-[rgba(255,255,255,0.06)]"
+            } flex items-center justify-center text-lg transition-all`}
+            title="Discord"
+          >
+            <img
+              src={discordIcon}
+              alt="Discord"
+              className="w-5 h-5 opacity-70"
+            />
+          </div>
+          <div
+            className={`w-10 h-10 rounded-md  ${
+              socials.telegram
+                ? "border-blue-500 bg-blue-500/10"
+                : "border-[rgba(255,255,255,0.06)]"
+            } flex items-center justify-center text-lg transition-all`}
+            title="Telegram"
+          >
+            <img
+              src={telegramIcon}
+              alt="Telegram"
+              className="w-5 h-5 opacity-70"
+            />
+          </div>
+          <div
+            className={`w-10 h-10 rounded-md  ${
+              socials.github
+                ? "border-blue-500 bg-blue-500/10"
+                : "border-[rgba(255,255,255,0.06)]"
+            } flex items-center justify-center text-lg transition-all`}
+            title="GitHub"
+          >
+            <img src={githubIcon} alt="GitHub" className="w-5 h-5 opacity-70" />
+          </div>
+          <div
+            className={`w-10 h-10 rounded-md  ${
+              socials.email
+                ? "border-blue-500 bg-blue-500/10"
+                : "border-[rgba(255,255,255,0.06)]"
+            } flex items-center justify-center text-lg transition-all`}
+            title="Email"
+          >
+            <img src={emailIcon} alt="GitHub" className="w-5 h-5 opacity-70" />
+          </div>
         </div>
       ),
     },
@@ -273,13 +366,15 @@ export default function DomainProfile() {
       isEditable: true,
       content: (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-sm bg-gradient-to-br from-[#00D1FF] to-[#7B61FF] flex items-center justify-center text-white">
+          <div className="w-10 h-10 rounded-sm bg-gradient-to-br from-[#8247E5] via-[#7B3FE4] to-[#6A3CD8] flex items-center justify-center text-white font-bold">
             P
           </div>
           <div>
-            <div className="text-sm">Polygon (Deposit Address)</div>
+            <div className="text-sm">Polymarket (Deposit Address)</div>
             <div className="text-xs text-[var(--text-soft)]">
-              {polygonAddress ? `${polygonAddress.slice(0, 6)}...${polygonAddress.slice(-4)}` : 'Not set'}
+              {polygonAddress
+                ? `${polygonAddress.slice(0, 6)}...${polygonAddress.slice(-4)}`
+                : "Not set"}
             </div>
           </div>
         </div>
@@ -291,11 +386,15 @@ export default function DomainProfile() {
       isEditable: true,
       content: (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-sm border flex items-center justify-center">👤</div>
+          <div className="w-10 h-10 rounded-sm border border-[rgba(255,255,255,0.2)] flex items-center justify-center">
+            👤
+          </div>
           <div>
             <div className="text-sm">Owner</div>
             <div className="text-xs text-[var(--text-soft)]">
-              {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Not connected'}
+              {address
+                ? `${address.slice(0, 6)}...${address.slice(-4)}`
+                : "Not connected"}
             </div>
           </div>
         </div>
@@ -309,50 +408,124 @@ export default function DomainProfile() {
     },
   ];
 
+  if (!address) {
+    return (
+      <div
+        className="min-h-screen w-full px-8 py-6 text-[var(--text-light)]"
+        style={{ background: "var(--primary-gradient)" }}
+      >
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold mb-4">Connect Your Wallet</h2>
+            <p className="text-[var(--text-soft)]">
+              Please connect your wallet to view your domain profile
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (userDomains.length === 0) {
+    return (
+      <div
+        className="min-h-screen w-full px-8 py-6 text-[var(--text-light)]"
+        style={{ background: "var(--primary-gradient)" }}
+      >
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold mb-4">No Domains Found</h2>
+            <p className="text-[var(--text-soft)] mb-6">
+              You don't own any domains yet
+            </p>
+            <button
+              onClick={() => navigate("/")}
+              className="px-6 py-3 bg-[var(--primary)] rounded-md hover:opacity-90 transition"
+            >
+              Register a Domain
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <motion.div
       className="min-h-screen w-full px-8 py-6 text-[var(--text-light)]"
       initial="initial"
       animate="animate"
-      variants={{ initial: { opacity: 0 }, animate: { opacity: 1, transition: { duration: 0.5 } } }}
+      variants={{
+        initial: { opacity: 0 },
+        animate: { opacity: 1, transition: { duration: 0.5 } },
+      }}
       style={{ background: "var(--primary-gradient)" }}
     >
       <Navbar />
       {/* Header */}
-      <motion.header className="mb-6" >
+      <motion.header className="mb-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <button className="text-2xl font-medium">◀ Back</button>
+
             <div className="flex items-center gap-4 px-4 py-3 rounded border border-[rgba(255,255,255,0.06)]">
-              <div className="w-14 h-14 bg-[#2E56FF] rounded-md flex items-center justify-center text-2xl font-bold">{selectedDomain?.name?.[0]?.toUpperCase() || 'A'}</div>
+              <div className="w-14 h-14 bg-[#2E56FF] rounded-md flex items-center justify-center text-2xl font-bold">
+                {selectedDomain?.name?.[0]?.toUpperCase() || "A"}
+              </div>
               <div>
-                <div className="text-2xl font-semibold">{selectedDomain?.name || 'Loading...'}</div>
-                <div className="text-sm text-[var(--text-soft)]">Owned By: {address?.slice(0, 8)}...{address?.slice(-4)} ⧉</div>
+                <div className="text-2xl font-semibold">
+                  {selectedDomain?.name || "Loading..."}
+                </div>
+                <div className="text-sm text-[var(--text-soft)] flex items-center gap-2">
+                  Owned By: {address?.slice(0, 8)}...{address?.slice(-4)}
+                  <a
+                    href={`https://polygonscan.com/address/${address}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-blue-400 transition"
+                  >
+                    ⧉
+                  </a>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <motion.button whileHover={{ scale: 1.03 }} className="px-4 py-2 bg-[var(--primary)] rounded-md">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              className="px-4 py-2 bg-[var(--primary)] rounded-md hover:opacity-90 transition"
+            >
               List Domain
             </motion.button>
-            <motion.button whileHover={{ scale: 1.03 }} className="px-4 py-2 border border-[rgba(255,255,255,0.14)] rounded-md">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              className="px-4 py-2 border border-[rgba(255,255,255,0.14)] rounded-md hover:border-[rgba(255,255,255,0.3)] transition"
+            >
               Set as Primary
             </motion.button>
-            <motion.button whileHover={{ scale: 1.03 }} className="w-11 h-11 rounded border border-[rgba(255,255,255,0.12)] flex items-center justify-center">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              className="w-11 h-11 rounded border border-[rgba(255,255,255,0.12)] flex items-center justify-center hover:border-[rgba(255,255,255,0.3)] transition"
+              title="Share"
+            >
               ⤴
             </motion.button>
           </div>
         </div>
       </motion.header>
 
-      <motion.main className="grid grid-cols-1 lg:grid-cols-3 gap-6" variants={container}>
+      <motion.main
+        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+        variants={container}
+      >
         {/* Left sidebar (spans 1 col) */}
         <section className="col-span-1 space-y-5">
-          {sidebarItems.map((s, ) => (
+          {sidebarItems.map((s) => (
             <motion.div
               key={s.title}
-              className="p-4 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"
+              className="p-4 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.12)] transition-all"
             >
               <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center gap-3">
@@ -362,12 +535,21 @@ export default function DomainProfile() {
                 <button
                   onClick={() => {
                     if (!s.isEditable) return;
+                    setSaveError(null);
+                    setSaveSuccess(null);
                     if (s.title === "Socials") setShowSocialsModal(true);
-                    else if (s.title === "Addresses") setShowAddressesModal(true);
-                    else if (s.title === "Other records") setShowOtherRecordsModal(true);
-                    else if (s.title === "Ownership") setShowTransferModal(true);
+                    else if (s.title === "Addresses")
+                      setShowAddressesModal(true);
+                    else if (s.title === "Other records")
+                      setShowOtherRecordsModal(true);
+                    else if (s.title === "Ownership")
+                      setShowTransferModal(true);
                   }}
-                  className={`text-sm ${s.isEditable ? 'text-[#2349E2] hover:underline cursor-pointer' : 'text-[var(--text-soft)]'}`}
+                  className={`text-sm ${
+                    s.isEditable
+                      ? "text-[#2349E2] hover:underline cursor-pointer"
+                      : "text-[var(--text-soft)]"
+                  }`}
                 >
                   {s.small}
                 </button>
@@ -379,7 +561,7 @@ export default function DomainProfile() {
 
         {/* Right panel - takes 2 cols */}
         <section className="col-span-2">
-          <motion.div className="rounded-lg border border-[rgba(255,255,255,0.06)] p-6 bg-[rgba(255,255,255,0.02)]" >
+          <motion.div className="rounded-lg border border-[rgba(255,255,255,0.06)] p-6 bg-[rgba(255,255,255,0.02)]">
             {/* Tabs */}
             <div className="flex items-end gap-6 border-b border-[rgba(255,255,255,0.03)] pb-3 mb-6">
               {rightTabs.map((t) => (
@@ -387,7 +569,11 @@ export default function DomainProfile() {
                   key={t}
                   onClick={() => setActiveTab(t)}
                   whileTap={{ scale: 0.98 }}
-                  className={`pb-2 text-sm ${activeTab === t ? "border-b-2 border-[var(--primary)]" : "opacity-70"}`}
+                  className={`pb-2 text-sm ${
+                    activeTab === t
+                      ? "border-b-2 border-[var(--primary)]"
+                      : "opacity-70"
+                  }`}
                 >
                   {t}
                 </motion.button>
@@ -401,12 +587,17 @@ export default function DomainProfile() {
                 <div>
                   <div className="text-lg font-semibold">Domain Wrapper</div>
                   <div className="text-sm text-[var(--text-soft)] max-w-prose">
-                    Wrapped NFT domains can receive funds and be viewed in wallets and marketplaces. However, some standard domain features will be disabled.
+                    Wrapped NFT domains can receive funds and be viewed in
+                    wallets and marketplaces. However, some standard domain
+                    features will be disabled.
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <motion.button whileHover={{ scale: 1.03 }} className="px-4 py-2 bg-[var(--primary)] rounded-md">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    className="px-4 py-2 bg-[var(--primary)] rounded-md hover:opacity-90 transition"
+                  >
                     Wrap to NFT
                   </motion.button>
                 </div>
@@ -414,40 +605,56 @@ export default function DomainProfile() {
 
               {/* Domain's Background Setting */}
               <div className="mb-6">
-                <div className="text-2xl font-semibold mb-4">Domain's Background Setting</div>
+                <div className="text-2xl font-semibold mb-4">
+                  Domain's Background Setting
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
                   {/* Preview card */}
                   <motion.div
-                    className="w-64 h-64 rounded-md border border-[rgba(255,255,255,0.06)] overflow-hidden bg-gradient-to-b from-[#0b1b6b] to-[#08103a] flex items-center justify-center"
+                    className="w-64 h-64 rounded-md border border-[rgba(255,255,255,0.06)] overflow-hidden bg-gradient-to-b from-[#0b1b6b] to-[#08103a] flex items-center justify-center relative"
                     whileHover={{ scale: 1.02 }}
                   >
-                    {/* image preview using uploaded file path */}
-                    <img
-                      src="/mnt/data/b8af53d4-b285-4c75-84ea-bc37be220d62.png"
-                      alt="domain-bg-preview"
-                      className="object-cover w-full h-full"
-                    />
-                    <div className="absolute pointer-events-none inset-0 flex items-center justify-center text-white text-xl font-medium">alex.poly</div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-blue-900 via-blue-800 to-blue-950"></div>
+                    <div className="absolute inset-0 flex items-center justify-center text-white text-xl font-medium z-10">
+                      {selectedDomain?.name || "domain.poly"}
+                    </div>
                   </motion.div>
 
                   {/* Description */}
                   <div className="md:col-span-2 text-[var(--text-soft)]">
-                    Limited edition backgrounds are jointly issued by PNS and other partners. The issuance activities are launched from time to time.
+                    Limited edition backgrounds are jointly issued by PNS and
+                    other partners. The issuance activities are launched from
+                    time to time.
                   </div>
                 </div>
               </div>
 
               {/* filler: activity / advanced content previews */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <motion.div className="p-4 rounded border border-[rgba(255,255,255,0.04)]" whileHover={{ y: -4 }}>
-                  <div className="text-lg font-semibold mb-2">Records & Metadata</div>
-                  <div className="text-sm text-[var(--text-soft)]">DNS entries, IPFS links, and other decentralized storage records.</div>
+                <motion.div
+                  className="p-4 rounded border border-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.12)] transition-all"
+                  whileHover={{ y: -4 }}
+                >
+                  <div className="text-lg font-semibold mb-2">
+                    Records & Metadata
+                  </div>
+                  <div className="text-sm text-[var(--text-soft)]">
+                    DNS entries, IPFS links, and other decentralized storage
+                    records.
+                  </div>
                 </motion.div>
 
-                <motion.div className="p-4 rounded border border-[rgba(255,255,255,0.04)]" whileHover={{ y: -4 }}>
-                  <div className="text-lg font-semibold mb-2">Recent Activity</div>
-                  <div className="text-sm text-[var(--text-soft)]">Last transfer • Wrapped • Price updates</div>
+                <motion.div
+                  className="p-4 rounded border border-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.12)] transition-all"
+                  whileHover={{ y: -4 }}
+                >
+                  <div className="text-lg font-semibold mb-2">
+                    Recent Activity
+                  </div>
+                  <div className="text-sm text-[var(--text-soft)]">
+                    Last transfer • Wrapped • Price updates
+                  </div>
                 </motion.div>
               </div>
             </motion.div>
@@ -470,17 +677,29 @@ export default function DomainProfile() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-[#0a0f2e] border border-blue-700 p-6 w-full max-w-2xl my-8 max-h-[90vh] overflow-y-auto"
+              className="bg-[#0a0f2e] border border-blue-700 rounded-xl p-6 w-full max-w-2xl my-8 max-h-[90vh] overflow-y-auto"
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-white">Edit Socials</h2>
+                <h2 className="text-xl font-semibold text-white">
+                  Edit Socials
+                </h2>
                 <button
                   onClick={() => setShowSocialsModal(false)}
                   className="text-[var(--text-soft)] hover:text-white transition"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
@@ -490,79 +709,83 @@ export default function DomainProfile() {
                 {/* Website */}
                 <div>
                   <label className="flex items-center gap-2 text-sm text-[var(--text-soft)] mb-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M10 0C4.477 0 0 4.477 0 10s4.477 10 10 10 10-4.477 10-10S15.523 0 10 0zm0 18c-4.418 0-8-3.582-8-8s3.582-8 8-8 8 3.582 8 8-3.582 8-8 8z" />
-                      <path d="M10 2C7.243 2 5 4.243 5 7h2c0-1.654 1.346-3 3-3s3 1.346 3 3c0 1.654-1.346 3-3 3v2c2.757 0 5-2.243 5-5s-2.243-5-5-5z" />
-                    </svg>
+                    <img src={internetIcon} alt="Website" className="w-4 h-4" />
                     Website
                   </label>
                   <input
                     type="text"
                     placeholder="https://"
                     value={socials.website}
-                    onChange={(e) => handleSocialChange('website', e.target.value)}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
+                    onChange={(e) =>
+                      handleSocialChange("website", e.target.value)
+                    }
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                   />
                 </div>
 
                 {/* Twitter */}
                 <div>
                   <label className="flex items-center gap-2 text-sm text-[var(--text-soft)] mb-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
-                    </svg>
+                    <img src={twitterIcon} alt="Twitter" className="w-4 h-4" />
                     Twitter
                   </label>
                   <input
                     type="text"
                     placeholder="@username"
                     value={socials.twitter}
-                    onChange={(e) => handleSocialChange('twitter', e.target.value)}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                    onChange={(e) =>
+                      handleSocialChange("twitter", e.target.value)
+                    }
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                   />
                 </div>
 
                 {/* Telegram */}
                 <div>
                   <label className="flex items-center gap-2 text-sm text-[var(--text-soft)] mb-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.053 5.56-5.023c.242-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z" />
-                    </svg>
+                    <img
+                      src={telegramIcon}
+                      alt="Telegram"
+                      className="w-4 h-4"
+                    />
                     Telegram
                   </label>
                   <input
                     type="text"
                     placeholder="@username"
                     value={socials.telegram}
-                    onChange={(e) => handleSocialChange('telegram', e.target.value)}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                    onChange={(e) =>
+                      handleSocialChange("telegram", e.target.value)
+                    }
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                   />
                 </div>
 
                 {/* Discord */}
                 <div>
                   <label className="flex items-center gap-2 text-sm text-[var(--text-soft)] mb-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-                    </svg>
+                    <img src={discordIcon} alt="Discord" className="w-4 h-4" />
                     Discord
                   </label>
                   <input
                     type="text"
                     placeholder="@username"
                     value={socials.discord}
-                    onChange={(e) => handleSocialChange('discord', e.target.value)}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                    onChange={(e) =>
+                      handleSocialChange("discord", e.target.value)
+                    }
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                   />
                 </div>
 
                 {/* Email */}
                 <div>
                   <label className="flex items-center gap-2 text-sm text-[var(--text-soft)] mb-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
                       <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                       <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                     </svg>
@@ -572,27 +795,27 @@ export default function DomainProfile() {
                     type="email"
                     placeholder="email"
                     value={socials.email}
-                    onChange={(e) => handleSocialChange('email', e.target.value)}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                    onChange={(e) =>
+                      handleSocialChange("email", e.target.value)
+                    }
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                   />
                 </div>
 
                 {/* GitHub */}
                 <div>
                   <label className="flex items-center gap-2 text-sm text-[var(--text-soft)] mb-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
-                    </svg>
+                    <img src={githubIcon} alt="GitHub" className="w-4 h-4" />
                     GitHub
                   </label>
                   <input
                     type="text"
                     placeholder="@username"
                     value={socials.github}
-                    onChange={(e) => handleSocialChange('github', e.target.value)}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                    onChange={(e) =>
+                      handleSocialChange("github", e.target.value)
+                    }
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                   />
                 </div>
               </div>
@@ -615,7 +838,7 @@ export default function DomainProfile() {
                 disabled={isSaving}
                 className="w-full mt-6 bg-[#2349E2] text-white py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50"
               >
-                {isSaving ? 'Saving...' : 'Save'}
+                {isSaving ? "Saving..." : "Save"}
               </button>
             </motion.div>
           </motion.div>
@@ -641,22 +864,39 @@ export default function DomainProfile() {
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-white">Manage Addresses</h2>
+                <h2 className="text-xl font-semibold text-white">
+                  Manage Addresses
+                </h2>
                 <button
                   onClick={() => setShowAddressesModal(false)}
                   className="text-[var(--text-soft)] hover:text-white transition"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
 
-              {/* Solana Address Section */}
+              {/* Polygon Address Section */}
               <div className="mb-8">
-                <h3 className="text-lg font-semibold text-white mb-2">Polygon Address (Fund receiving address)</h3>
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  Polymarket Address (Fund receiving address)
+                </h3>
                 <p className="text-sm text-[var(--text-soft)] mb-4">
-                  This alternative address will receive funds sent to your domain, and can differ from the address holding your domain. It is commonly used to direct funds to a hot wallet, while your domain remains in a cold wallet.
+                  This alternative address will receive funds sent to your
+                  domain, and can differ from the address holding your domain.
+                  It is commonly used to direct funds to a hot wallet, while
+                  your domain remains in a cold wallet.
                 </p>
 
                 {/* Status Messages */}
@@ -674,7 +914,7 @@ export default function DomainProfile() {
                 <div className="flex gap-3">
                   <input
                     type="text"
-                    placeholder="Input a new Polygon Address"
+                    placeholder="Input a new Polymarket Address"
                     value={polygonAddress}
                     onChange={(e) => setPolygonAddress(e.target.value)}
                     className="flex-1 bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-3 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
@@ -684,11 +924,11 @@ export default function DomainProfile() {
                     disabled={isSaving}
                     className="bg-[#2349E2] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition whitespace-nowrap disabled:opacity-50"
                   >
-                    {isSaving ? 'Saving...' : 'Save'}
+                    {isSaving ? "Saving..." : "Save"}
                   </button>
                   <button
                     onClick={handleVerifyAddress}
-                    className="bg-[#2349E2] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition whitespace-nowrap"
+                    className="border border-[#2349E2] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#2349E2]/10 transition whitespace-nowrap"
                   >
                     Verify
                   </button>
@@ -697,18 +937,21 @@ export default function DomainProfile() {
 
               {/* Add Other Addresses Section */}
               <div>
-                <h3 className="text-lg font-semibold text-white mb-2">Add Other Addresses</h3>
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  Add Other Addresses
+                </h3>
                 <p className="text-sm text-[var(--text-soft)] mb-4">
-                  Add addresses from across chains to build a complete web3 profile
+                  Add addresses from across chains to build a complete web3
+                  profile
                 </p>
 
                 <div className="flex flex-wrap gap-3">
-                  {/* BTC */}
+                  {/* SOL */}
                   <button className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] border-2 border-[rgba(255,255,255,0.2)] rounded-lg px-4 py-3 hover:border-[#2349E2] transition group">
-                    <div className="w-6 h-6 bg-[#F7931A] rounded-full flex items-center justify-center text-white text-xs font-bold">
-                      ₿
+                    <div className="w-6 h-6 bg-gradient-to-br from-[#00D1FF] to-[#7B61FF] rounded-full flex items-center justify-center text-white text-xs font-bold">
+                      ≡
                     </div>
-                    <span className="text-white font-medium">BTC</span>
+                    <span className="text-white font-medium">SOL</span>
                   </button>
 
                   {/* ETH */}
@@ -719,18 +962,10 @@ export default function DomainProfile() {
                     <span className="text-white font-medium">ETH</span>
                   </button>
 
-                  {/* INJ */}
-                  <button className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] border-2 border-[rgba(255,255,255,0.2)] rounded-lg px-4 py-3 hover:border-[#2349E2] transition group">
-                    <div className="w-6 h-6 bg-gradient-to-r from-[#00F2FE] to-[#4FACFE] rounded-full flex items-center justify-center text-white text-xs font-bold">
-                      I
-                    </div>
-                    <span className="text-white font-medium">INJ</span>
-                  </button>
-
                   {/* BASE */}
                   <button className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] border-2 border-[rgba(255,255,255,0.2)] rounded-lg px-4 py-3 hover:border-[#2349E2] transition group">
                     <div className="w-6 h-6 bg-[#0052FF] rounded-full flex items-center justify-center text-white text-xs font-bold">
-                      B
+                      ⬡
                     </div>
                     <span className="text-white font-medium">BASE</span>
                   </button>
@@ -768,71 +1003,81 @@ export default function DomainProfile() {
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-white">Other Records</h2>
+                <h2 className="text-xl font-semibold text-white">
+                  Other Records
+                </h2>
                 <button
                   onClick={() => setShowOtherRecordsModal(false)}
                   className="text-[var(--text-soft)] hover:text-white transition"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
 
               {/* Decentralized Storage Records Section */}
               <div className="mb-8">
-                <h3 className="text-lg font-semibold text-white mb-4">Decentralized Storage Records</h3>
+                <h3 className="text-lg font-semibold text-white mb-4">
+                  Decentralized Storage Records
+                </h3>
 
                 <div className="space-y-4">
                   {/* IPFS */}
                   <div>
-                    <label className="block text-sm text-white mb-2">IPFS</label>
+                    <label className="block text-sm text-white mb-2">
+                      IPFS
+                    </label>
                     <input
                       type="text"
-                      placeholder="Enter IPFS Content Identifier(CID)"
+                      placeholder="Enter IPFS Content Identifier (CID)"
                       value={otherRecords.ipfs}
-                      onChange={(e) => handleOtherRecordChange('ipfs', e.target.value)}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                      onChange={(e) =>
+                        handleOtherRecordChange("ipfs", e.target.value)
+                      }
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                     />
                   </div>
 
                   {/* ARWV */}
                   <div>
-                    <label className="block text-sm text-white mb-2">ARWV</label>
+                    <label className="block text-sm text-white mb-2">
+                      ARWV
+                    </label>
                     <input
                       type="text"
                       placeholder="Enter Arweave Transaction ID"
                       value={otherRecords.arwv}
-                      onChange={(e) => handleOtherRecordChange('arwv', e.target.value)}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
-                    />
-                  </div>
-
-                  {/* SHDW */}
-                  <div>
-                    <label className="block text-sm text-white mb-2">SHDW</label>
-                    <input
-                      type="text"
-                      placeholder="Enter Arweave Transaction ID"
-                      value={otherRecords.shdw}
-                      onChange={(e) => handleOtherRecordChange('shdw', e.target.value)}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                      onChange={(e) =>
+                        handleOtherRecordChange("arwv", e.target.value)
+                      }
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                     />
                   </div>
 
                   {/* IPNS */}
                   <div>
-                    <label className="block text-sm text-white mb-2">IPNS</label>
+                    <label className="block text-sm text-white mb-2">
+                      IPNS
+                    </label>
                     <input
                       type="text"
                       placeholder="Enter IPNS identifier"
                       value={otherRecords.ipns}
-                      onChange={(e) => handleOtherRecordChange('ipns', e.target.value)}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                      onChange={(e) =>
+                        handleOtherRecordChange("ipns", e.target.value)
+                      }
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                     />
                   </div>
                 </div>
@@ -840,73 +1085,104 @@ export default function DomainProfile() {
 
               {/* DNS Records Section */}
               <div className="mb-6">
-                <h3 className="text-lg font-semibold text-white mb-4">DNS Records</h3>
+                <h3 className="text-lg font-semibold text-white mb-4">
+                  DNS Records
+                </h3>
 
                 <div className="space-y-4">
                   {/* A Record */}
                   <div>
                     <label className="block text-sm text-white mb-1">A</label>
-                    <p className="text-xs text-[var(--text-soft)] mb-2">Point domain to an IPv4 address</p>
+                    <p className="text-xs text-[var(--text-soft)] mb-2">
+                      Point domain to an IPv4 address
+                    </p>
                     <input
                       type="text"
                       placeholder="E.g. 111.108.1.1"
                       value={otherRecords.dnsA}
-                      onChange={(e) => handleOtherRecordChange('dnsA', e.target.value)}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                      onChange={(e) =>
+                        handleOtherRecordChange("dnsA", e.target.value)
+                      }
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                     />
                   </div>
 
                   {/* AAAA Record */}
                   <div>
-                    <label className="block text-sm text-white mb-1">AAAA</label>
-                    <p className="text-xs text-[var(--text-soft)] mb-2">Point domain to an IPv6 address</p>
+                    <label className="block text-sm text-white mb-1">
+                      AAAA
+                    </label>
+                    <p className="text-xs text-[var(--text-soft)] mb-2">
+                      Point domain to an IPv6 address
+                    </p>
                     <input
                       type="text"
                       placeholder="E.g. 2001:0db8:76a2:0000:0000:8a2e:3970:7334"
                       value={otherRecords.dnsAAAA}
-                      onChange={(e) => handleOtherRecordChange('dnsAAAA', e.target.value)}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                      onChange={(e) =>
+                        handleOtherRecordChange("dnsAAAA", e.target.value)
+                      }
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                     />
                   </div>
 
                   {/* CNAME Record */}
                   <div>
-                    <label className="block text-sm text-white mb-1">CNAME</label>
-                    <p className="text-xs text-[var(--text-soft)] mb-2">Point this domain to tradtition domain</p>
+                    <label className="block text-sm text-white mb-1">
+                      CNAME
+                    </label>
+                    <p className="text-xs text-[var(--text-soft)] mb-2">
+                      Point this domain to traditional domain
+                    </p>
                     <input
                       type="text"
                       placeholder="E.g. example.com"
                       value={otherRecords.dnsCNAME}
-                      onChange={(e) => handleOtherRecordChange('dnsCNAME', e.target.value)}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                      onChange={(e) =>
+                        handleOtherRecordChange("dnsCNAME", e.target.value)
+                      }
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                     />
                   </div>
 
                   {/* TXT Record */}
                   <div>
                     <label className="block text-sm text-white mb-1">TXT</label>
-                    <p className="text-xs text-[var(--text-soft)] mb-2">Store text data for verification or metadata</p>
+                    <p className="text-xs text-[var(--text-soft)] mb-2">
+                      Store text data for verification or metadata
+                    </p>
                     <input
                       type="text"
                       placeholder="Enter TXT value here"
                       value={otherRecords.dnsTXT}
-                      onChange={(e) => handleOtherRecordChange('dnsTXT', e.target.value)}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border rounded-none border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-blue-700 transition"
-
+                      onChange={(e) =>
+                        handleOtherRecordChange("dnsTXT", e.target.value)
+                      }
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-2 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
                     />
                   </div>
                 </div>
               </div>
 
+              {/* Status Messages */}
+              {saveError && (
+                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                  {saveError}
+                </div>
+              )}
+              {saveSuccess && (
+                <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 text-sm">
+                  {saveSuccess}
+                </div>
+              )}
+
               {/* Confirm Button */}
               <button
                 onClick={handleSaveOtherRecords}
-                className="w-full bg-[#2349E2] text-white py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition"
+                disabled={isSaving}
+                className="w-full bg-[#2349E2] text-white py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50"
               >
-                Confirm
+                {isSaving ? "Saving..." : "Confirm"}
               </button>
             </motion.div>
           </motion.div>
@@ -932,43 +1208,53 @@ export default function DomainProfile() {
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-white">Transfer Domain</h2>
+                <h2 className="text-xl font-semibold text-white">
+                  Transfer Domain
+                </h2>
                 <button
                   onClick={() => setShowTransferModal(false)}
                   className="text-[var(--text-soft)] hover:text-white transition"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
 
               {/* Domain to be transferred */}
               <div className="mb-6">
-                <label className="block text-sm text-white mb-2">Domain to be transferred</label>
+                <label className="block text-sm text-white mb-2">
+                  Domain to be transferred
+                </label>
                 <div className="bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-3">
-                  <span className="text-white">alex.poly</span>
+                  <span className="text-white">
+                    {selectedDomain?.name || "domain.poly"}
+                  </span>
                 </div>
               </div>
 
               {/* New owner's wallet address */}
               <div className="mb-6">
-                <label className="block text-sm text-white mb-2">New owner's wallet address (or domain)</label>
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    placeholder="Enter wallet address or domain"
-                    value={transferAddress}
-                    onChange={(e) => setTransferAddress(e.target.value)}
-                    className="flex-1 bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-3 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
-                  />
-                  <button
-                    onClick={handleSaveTransferAddress}
-                    className="bg-[#2349E2] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition whitespace-nowrap"
-                  >
-                    Save
-                  </button>
-                </div>
+                <label className="block text-sm text-white mb-2">
+                  New owner's wallet address (or domain)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter wallet address or domain"
+                  value={transferAddress}
+                  onChange={(e) => setTransferAddress(e.target.value)}
+                  className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-3 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
+                />
               </div>
 
               {/* Confirmation checkbox */}
@@ -981,18 +1267,31 @@ export default function DomainProfile() {
                     className="mt-1 w-4 h-4 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.2)] rounded accent-[#2349E2]"
                   />
                   <span className="text-sm text-[var(--text-soft)]">
-                    I understand that sending to an incorrect address cannot be reversed
+                    I understand that sending to an incorrect address cannot be
+                    reversed
                   </span>
                 </label>
               </div>
+
+              {/* Status Messages */}
+              {saveError && (
+                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                  {saveError}
+                </div>
+              )}
+              {saveSuccess && (
+                <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 text-sm">
+                  {saveSuccess}
+                </div>
+              )}
 
               {/* Confirm Button */}
               <button
                 onClick={handleConfirmTransfer}
                 className="w-full bg-[#2349E2] text-white py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!transferConfirmed || !transferAddress}
+                disabled={!transferConfirmed || !transferAddress || isSaving}
               >
-                Confirm
+                {isSaving ? "Transferring..." : "Confirm"}
               </button>
             </motion.div>
           </motion.div>
