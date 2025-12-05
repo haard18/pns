@@ -394,22 +394,22 @@ export default function Marketplace() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 pt-8 pb-16">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 pt-6 md:pt-8 pb-10 md:pb-16">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8"
+          className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 md:mb-8"
         >
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2">Domain Marketplace</h1>
-            <p className="text-[var(--text-soft)]">Discover and register premium .poly domains</p>
+          <div className="text-center sm:text-left">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2">Domain Marketplace</h1>
+            <p className="text-[var(--text-soft)] text-sm md:text-base">Discover and register premium .poly domains</p>
           </div>
           
           {/* Cart Button */}
           <button
             onClick={() => setShowCart(true)}
-            className="relative flex items-center gap-3 px-6 py-3 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] hover:border-[#2349E2] transition"
+            className="relative flex items-center gap-3 px-6 py-3 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] hover:border-[#2349E2] transition w-full sm:w-auto justify-center sm:justify-start"
           >
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -428,13 +428,13 @@ export default function Marketplace() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="flex flex-wrap gap-3 mb-8"
+          className="flex flex-wrap gap-2 md:gap-3 mb-8"
         >
           {categories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition ${
+              className={`flex items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-medium transition text-sm md:text-base ${
                 selectedCategory === cat.id
                   ? "bg-[#2349E2] text-white"
                   : "bg-[rgba(255,255,255,0.02)] text-[var(--text-soft)] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)]"
@@ -448,7 +448,7 @@ export default function Marketplace() {
           {/* Refresh Button */}
           <button
             onClick={refreshDomains}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium bg-[rgba(255,255,255,0.02)] text-[var(--text-soft)] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] transition ml-auto"
+            className="flex items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-medium bg-[rgba(255,255,255,0.02)] text-[var(--text-soft)] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] transition ml-auto text-sm md:text-base"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -468,7 +468,7 @@ export default function Marketplace() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6"
           >
             {filteredDomains.map((domain, index) => (
               <motion.div
@@ -476,11 +476,11 @@ export default function Marketplace() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
-                className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-2xl p-5 hover:border-[rgba(255,255,255,0.12)] transition group"
+                className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-2xl p-4 md:p-5 hover:border-[rgba(255,255,255,0.12)] transition group"
               >
                 {/* Domain Name */}
                 <div className="mb-4">
-                  <h3 className="text-xl font-bold text-white group-hover:text-[#2349E2] transition">
+                  <h3 className="text-lg md:text-xl font-bold text-white group-hover:text-[#2349E2] transition">
                     {domain.name}<span className="text-[var(--text-soft)]">.poly</span>
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
@@ -498,7 +498,7 @@ export default function Marketplace() {
                   <button
                     onClick={() => checkDomain(index)}
                     disabled={domain.isChecking || checkingIndex !== null}
-                    className="w-full py-3 rounded-xl bg-[rgba(255,255,255,0.05)] text-white font-medium hover:bg-[rgba(255,255,255,0.1)] transition disabled:opacity-50"
+                    className="w-full py-2.5 md:py-3 rounded-xl bg-[rgba(255,255,255,0.05)] text-white font-medium hover:bg-[rgba(255,255,255,0.1)] transition disabled:opacity-50 text-sm md:text-base"
                   >
                     {domain.isChecking ? (
                       <span className="flex items-center justify-center gap-2">
@@ -520,7 +520,7 @@ export default function Marketplace() {
                         </svg>
                         Available
                       </span>
-                      <span className="text-[#2349E2] font-bold">
+                      <span className="text-[#2349E2] font-bold text-sm md:text-base">
                         {domain.price} USDC
                       </span>
                     </div>
@@ -528,7 +528,7 @@ export default function Marketplace() {
                     {isInCart(domain.name) ? (
                       <button
                         onClick={() => removeFromCart(domain.name)}
-                        className="w-full py-3 rounded-xl bg-green-500/20 text-green-400 font-semibold border border-green-500/30 hover:bg-green-500/30 transition flex items-center justify-center gap-2"
+                        className="w-full py-2.5 md:py-3 rounded-xl bg-green-500/20 text-green-400 font-semibold border border-green-500/30 hover:bg-green-500/30 transition flex items-center justify-center gap-2 text-sm md:text-base"
                       >
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -538,7 +538,7 @@ export default function Marketplace() {
                     ) : (
                       <button
                         onClick={() => addToCart(domain)}
-                        className="w-full py-3 rounded-xl bg-[#2349E2] text-white font-semibold hover:bg-[#1e3dc7] transition flex items-center justify-center gap-2"
+                        className="w-full py-2.5 md:py-3 rounded-xl bg-[#2349E2] text-white font-semibold hover:bg-[#1e3dc7] transition flex items-center justify-center gap-2 text-sm md:text-base"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -548,7 +548,7 @@ export default function Marketplace() {
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center py-3 text-red-400 text-sm font-medium">
+                  <div className="flex items-center justify-center py-2.5 md:py-3 text-red-400 text-sm font-medium">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                     </svg>

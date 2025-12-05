@@ -167,10 +167,10 @@ const RegisterDomain = () => {
 
 
 
-            <div className="max-w-7xl mx-auto px-6 pt-8 pb-12">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 pt-6 md:pt-8 pb-10 md:pb-12">
                 {/* Header */}
                 <motion.div
-                    className="flex items-center gap-3 mb-8"
+                    className="flex items-center gap-3 mb-6 md:mb-8"
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                 >
@@ -178,44 +178,44 @@ const RegisterDomain = () => {
                         onClick={() => window.history.back()}
                         className="text-white hover:text-[#2349E2] transition"
                     >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                     </button>
-                    <h1 className="text-2xl text-white font-semibold">Register Domain</h1>
+                    <h1 className="text-xl md:text-2xl text-white font-semibold">Register Domain</h1>
                 </motion.div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
                     {/* LEFT PANEL - Payment & Order Details */}
                     <motion.div
-                        className="border border-[#2349E2] bg-black/30 backdrop-blur-md p-8 rounded-lg self-start"
+                        className="border border-[#2349E2] bg-black/30 backdrop-blur-md p-6 md:p-8 rounded-lg self-start"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
                     >
                         {/* Pay with Section */}
-                        <div className="mb-8">
+                        <div className="mb-6 md:mb-8">
                             <h3 className="text-white text-sm mb-4 flex items-center gap-2">
                                 <span className="text-[#2349E2]">💳</span> Pay with
                             </h3>
 
-                            <div className="flex gap-3 mb-4">
+                            <div className="flex gap-3 mb-4 overflow-x-auto pb-2">
                                 <button
                                     onClick={() => setPaymentMethod("USDC")}
-                                    className={`px-6 py-2 border ${paymentMethod === "USDC"
+                                    className={`px-4 md:px-6 py-2 border ${paymentMethod === "USDC"
                                         ? "border-[#2349E2] bg-[#2349E2]/20 text-white"
                                         : "border-white/20 text-white/60"
-                                        } rounded flex items-center gap-2`}
+                                        } rounded flex items-center gap-2 whitespace-nowrap text-sm md:text-base`}
                                 >
                                     <span className="text-blue-400">$</span> USDC
                                 </button>
 
                                 <button
                                     onClick={() => setPaymentMethod("Other")}
-                                    className={`px-6 py-2 border ${paymentMethod === "Other"
+                                    className={`px-4 md:px-6 py-2 border ${paymentMethod === "Other"
                                         ? "border-[#2349E2] bg-[#2349E2]/20 text-white"
                                         : "border-white/20 text-white/60"
-                                        } rounded flex items-center gap-2`}
+                                        } rounded flex items-center gap-2 whitespace-nowrap text-sm md:text-base`}
                                     disabled
                                 >
                                     Other Tokens (Coming Soon)
@@ -243,14 +243,14 @@ const RegisterDomain = () => {
                                         key={idx}
                                         className="grid grid-cols-3 gap-4 px-4 py-4 border-b border-[#2349E2]/30 items-center hover:bg-white/5"
                                     >
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 overflow-hidden">
                                             <input
                                                 type="checkbox"
                                                 checked={domain.isChecked}
                                                 onChange={() => toggleDomain(idx)}
-                                                className="w-4 h-4 accent-[#2349E2]"
+                                                className="w-4 h-4 accent-[#2349E2] flex-shrink-0"
                                             />
-                                            <span className="text-white text-sm">{domain.name}</span>
+                                            <span className="text-white text-sm truncate">{domain.name}</span>
                                         </div>
 
                                         <div className="text-right">
@@ -282,7 +282,7 @@ const RegisterDomain = () => {
                         {/* Discount Code */}
                         <div className="border border-[#2349E2] bg-black/30 backdrop-blur-md p-6 rounded-lg">
                             <h3 className="text-white text-sm mb-4">Have a discount code?</h3>
-                            <div className="flex gap-3">
+                            <div className="flex gap-3 flex-col sm:flex-row">
                                 <input
                                     type="text"
                                     value={discountCode}
@@ -304,16 +304,16 @@ const RegisterDomain = () => {
 
                             {/* Subtotal */}
                             <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
-                                <span className="text-white/60">Price per year</span>
+                                <span className="text-white/60 text-sm md:text-base">Price per year</span>
                                 <div className="text-right">
-                                    <p className="text-white">{subtotal.toFixed(2)} USDC</p>
+                                    <p className="text-white text-sm md:text-base">{subtotal.toFixed(2)} USDC</p>
                                     <p className="text-white/40 text-xs">~${subtotal.toFixed(2)} USD</p>
                                 </div>
                             </div>
 
                             {/* Years Selector */}
                             <div className="flex justify-between items-center mb-6">
-                                <span className="text-white/60">Years</span>
+                                <span className="text-white/60 text-sm md:text-base">Years</span>
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={() => setYears(Math.max(1, years - 1))}
@@ -333,9 +333,9 @@ const RegisterDomain = () => {
 
                             {/* Total */}
                             <div className="flex justify-between items-center pt-4 border-t border-white/10 mb-6">
-                                <span className="text-white font-semibold">Total</span>
+                                <span className="text-white font-semibold text-lg">Total</span>
                                 <div className="text-right">
-                                    <p className="text-white font-semibold">{total.toFixed(2)} USDC</p>
+                                    <p className="text-white font-semibold text-lg">{total.toFixed(2)} USDC</p>
                                     <p className="text-white/40 text-xs">~${usdValue} USD</p>
                                 </div>
                             </div>
@@ -356,8 +356,8 @@ const RegisterDomain = () => {
                                     <div className="space-y-2 mb-3">
                                         {confirmData.domains.map((d, i) => (
                                             <div key={i} className="flex justify-between text-white text-sm">
-                                                <span>{d.name}</span>
-                                                <span>{parseFloat(d.price).toFixed(2)} USDC</span>
+                                                <span className="truncate pr-4">{d.name}</span>
+                                                <span className="whitespace-nowrap">{parseFloat(d.price).toFixed(2)} USDC</span>
                                             </div>
                                         ))}
                                     </div>
@@ -376,7 +376,7 @@ const RegisterDomain = () => {
                                         <strong className="text-white">{confirmData.total.toFixed(2)} USDC</strong>
                                     </div>
 
-                                    <div className="flex gap-3">
+                                    <div className="flex flex-col sm:flex-row gap-3">
                                         <button onClick={() => { setConfirming(false); setConfirmData(null); }} className="flex-1 px-4 py-2 border text-white border-white/20 rounded">Cancel</button>
                                         <button onClick={handleConfirmAndPay} disabled={registering} className="flex-1 px-4 py-2 bg-[#2349E2] text-white rounded">{registering ? 'Processing...' : 'Confirm & Pay'}</button>
                                     </div>
@@ -405,7 +405,6 @@ const RegisterDomain = () => {
                                     <div className="bg-blue-700 w-[70%]"></div>
                                     <div className="bg-green-500 w-[30%]"></div>
                                 </div>
-                                {/* <div className="h-3 bg-leaner from-blue-700 from-0% via-[#2349E2] via-70% to-green-500 to-100% mb-8"></div> */}
 
                                 {/* Dots on the bar */}
                                 <div className="absolute top-[12px] left-0 right-0 flex justify-between px-1">
@@ -429,20 +428,20 @@ const RegisterDomain = () => {
                                 </div>
 
                                 {/* Labels */}
-                                <div className="grid grid-cols-3 gap-4 text-center mt-4 pt-4">
+                                <div className="grid grid-cols-3 gap-2 md:gap-4 text-center mt-4 pt-4">
                                     <div>
-                                        <p className="text-white text-sm font-medium">1-YEAR</p>
-                                        <p className="text-white/60 text-xs mt-1">9% gas</p>
+                                        <p className="text-white text-xs md:text-sm font-medium">1-YEAR</p>
+                                        <p className="text-white/60 text-[10px] md:text-xs mt-1">9% gas</p>
                                     </div>
 
                                     <div>
-                                        <p className="text-white text-sm font-medium">2-YEAR</p>
-                                        <p className="text-white/60 text-xs mt-1">5% gas</p>
+                                        <p className="text-white text-xs md:text-sm font-medium">2-YEAR</p>
+                                        <p className="text-white/60 text-[10px] md:text-xs mt-1">5% gas</p>
                                     </div>
 
                                     <div>
-                                        <p className="text-white text-sm font-medium">5-YEAR</p>
-                                        <p className="text-white/60 text-xs mt-1">2% gas</p>
+                                        <p className="text-white text-xs md:text-sm font-medium">5-YEAR</p>
+                                        <p className="text-white/60 text-[10px] md:text-xs mt-1">2% gas</p>
                                     </div>
                                 </div>
                             </div>

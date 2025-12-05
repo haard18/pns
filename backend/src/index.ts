@@ -15,6 +15,8 @@ import redis from './services/redis.service';
 
 // Initialize Express app
 const app: Application = express();
+app.set('trust proxy', 1); // Trust first proxy
+
 let indexer: EventIndexer;
 
 // Validate configuration in production
@@ -55,7 +57,7 @@ app.use('/api', domainsRoutes);
 app.get('/health', async (_req: Request, res: Response) => {
   const indexerStatus = indexer ? indexer.getStatus() : null;
   const redisHealthy = await redis.ping();
-  
+
   res.json({
     success: true,
     data: {
@@ -72,7 +74,7 @@ app.get('/health', async (_req: Request, res: Response) => {
 app.get('/api/health', async (_req: Request, res: Response) => {
   const indexerStatus = indexer ? indexer.getStatus() : null;
   const redisHealthy = await redis.ping();
-  
+
   res.json({
     success: true,
     data: {
@@ -132,10 +134,10 @@ async function initializeServices() {
   try {
     logger.info('Connecting to database...');
     await database.connect();
-    
+
     logger.info('Connecting to Redis...');
     await redis.connect();
-    
+
     logger.info('All services connected successfully');
   } catch (error) {
     logger.error('Failed to initialize services:', error);
@@ -148,7 +150,7 @@ async function startIndexer() {
   try {
     indexer = new EventIndexer();
     await indexer.initialize();
-    
+
     if (Config.indexer.enabled) {
       await indexer.start();
       logger.info('Event indexer started successfully');
@@ -171,7 +173,7 @@ async function startServer() {
   try {
     // Initialize database and Redis first
     await initializeServices();
-    
+
     // Start HTTP server
     app.listen(PORT, async () => {
       logger.info(`PNS Event Indexer API server started`, {
@@ -187,7 +189,7 @@ async function startServer() {
       console.log(`🔴 Redis: ${Config.redis.url}`);
       console.log(`📚 API Docs: http://localhost:${PORT}/`);
       console.log(`🔍 Event indexing: ${Config.indexer.scanIntervalMs || 30000}ms intervals`);
-      
+
       // Start the event indexer
       await startIndexer();
     });

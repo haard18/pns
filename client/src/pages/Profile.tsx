@@ -521,16 +521,16 @@ export default function DomainProfile() {
         variants={container}
       >
         {/* Left sidebar (spans 1 col) */}
-        <section className="col-span-1 space-y-5">
+        <section className="col-span-1 space-y-4 md:space-y-5">
           {sidebarItems.map((s) => (
             <motion.div
               key={s.title}
-              className="p-4 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.12)] transition-all"
+              className="p-3 md:p-4 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.12)] transition-all"
             >
-              <div className="flex justify-between items-center mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="text-xl">◎</div>
-                  <div className="font-medium">{s.title}</div>
+              <div className="flex justify-between items-center mb-2 md:mb-3">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className="text-lg md:text-xl">◎</div>
+                  <div className="text-sm md:text-base font-medium">{s.title}</div>
                 </div>
                 <button
                   onClick={() => {
@@ -545,7 +545,7 @@ export default function DomainProfile() {
                     else if (s.title === "Ownership")
                       setShowTransferModal(true);
                   }}
-                  className={`text-sm ${
+                  className={`text-xs md:text-sm ${
                     s.isEditable
                       ? "text-[#2349E2] hover:underline cursor-pointer"
                       : "text-[var(--text-soft)]"
@@ -560,16 +560,16 @@ export default function DomainProfile() {
         </section>
 
         {/* Right panel - takes 2 cols */}
-        <section className="col-span-2">
-          <motion.div className="rounded-lg border border-[rgba(255,255,255,0.06)] p-6 bg-[rgba(255,255,255,0.02)]">
+        <section className="col-span-1 lg:col-span-2">
+          <motion.div className="rounded-lg border border-[rgba(255,255,255,0.06)] p-4 md:p-6 bg-[rgba(255,255,255,0.02)]">
             {/* Tabs */}
-            <div className="flex items-end gap-6 border-b border-[rgba(255,255,255,0.03)] pb-3 mb-6">
+            <div className="flex items-end gap-4 md:gap-6 border-b border-[rgba(255,255,255,0.03)] pb-2 md:pb-3 mb-4 md:mb-6 overflow-x-auto">
               {rightTabs.map((t) => (
                 <motion.button
                   key={t}
                   onClick={() => setActiveTab(t)}
                   whileTap={{ scale: 0.98 }}
-                  className={`pb-2 text-sm ${
+                  className={`pb-2 text-xs md:text-sm whitespace-nowrap ${
                     activeTab === t
                       ? "border-b-2 border-[var(--primary)]"
                       : "opacity-70"
@@ -583,20 +583,20 @@ export default function DomainProfile() {
             {/* Content area */}
             <motion.div variants={scaleIn}>
               {/* Domain Wrapper row */}
-              <div className="flex items-start justify-between gap-4 mb-6">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
                 <div>
-                  <div className="text-lg font-semibold">Domain Wrapper</div>
-                  <div className="text-sm text-[var(--text-soft)] max-w-prose">
+                  <div className="text-base md:text-lg font-semibold">Domain Wrapper</div>
+                  <div className="text-xs md:text-sm text-[var(--text-soft)] max-w-prose mt-1">
                     Wrapped NFT domains can receive funds and be viewed in
                     wallets and marketplaces. However, some standard domain
                     features will be disabled.
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
                   <motion.button
                     whileHover={{ scale: 1.03 }}
-                    className="px-4 py-2 bg-[var(--primary)] rounded-md hover:opacity-90 transition"
+                    className="w-full md:w-auto px-4 py-2 bg-[var(--primary)] text-sm md:text-base rounded-md hover:opacity-90 transition"
                   >
                     Wrap to NFT
                   </motion.button>
@@ -605,24 +605,24 @@ export default function DomainProfile() {
 
               {/* Domain's Background Setting */}
               <div className="mb-6">
-                <div className="text-2xl font-semibold mb-4">
+                <div className="text-xl md:text-2xl font-semibold mb-4">
                   Domain's Background Setting
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
                   {/* Preview card */}
                   <motion.div
-                    className="w-64 h-64 rounded-md border border-[rgba(255,255,255,0.06)] overflow-hidden bg-gradient-to-b from-[#0b1b6b] to-[#08103a] flex items-center justify-center relative"
+                    className="w-full md:w-64 h-64 mx-auto md:mx-0 rounded-md border border-[rgba(255,255,255,0.06)] overflow-hidden  flex items-center justify-center relative"
                     whileHover={{ scale: 1.02 }}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-b from-blue-900 via-blue-800 to-blue-950"></div>
+                    <div className="absolute inset-0 nft-bg"></div>
                     <div className="absolute inset-0 flex items-center justify-center text-white text-xl font-medium z-10">
-                      {selectedDomain?.name || "domain.poly"}
+                      {selectedDomain?.name+'.poly' || "domain.poly"}
                     </div>
                   </motion.div>
 
                   {/* Description */}
-                  <div className="md:col-span-2 text-[var(--text-soft)]">
+                  <div className="md:col-span-2 text-sm md:text-base text-[var(--text-soft)]">
                     Limited edition backgrounds are jointly issued by PNS and
                     other partners. The issuance activities are launched from
                     time to time.
@@ -636,10 +636,10 @@ export default function DomainProfile() {
                   className="p-4 rounded border border-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.12)] transition-all"
                   whileHover={{ y: -4 }}
                 >
-                  <div className="text-lg font-semibold mb-2">
+                  <div className="text-base md:text-lg font-semibold mb-2">
                     Records & Metadata
                   </div>
-                  <div className="text-sm text-[var(--text-soft)]">
+                  <div className="text-xs md:text-sm text-[var(--text-soft)]">
                     DNS entries, IPFS links, and other decentralized storage
                     records.
                   </div>
@@ -649,10 +649,10 @@ export default function DomainProfile() {
                   className="p-4 rounded border border-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.12)] transition-all"
                   whileHover={{ y: -4 }}
                 >
-                  <div className="text-lg font-semibold mb-2">
+                  <div className="text-base md:text-lg font-semibold mb-2">
                     Recent Activity
                   </div>
-                  <div className="text-sm text-[var(--text-soft)]">
+                  <div className="text-xs md:text-sm text-[var(--text-soft)]">
                     Last transfer • Wrapped • Price updates
                   </div>
                 </motion.div>

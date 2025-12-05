@@ -1,5 +1,18 @@
 import { useEffect, useRef } from "react";
 
+// Import logos
+import polymarket from "../assets/logos/polymarket.png";
+import solana from "../assets/logos/solana.png";
+import metaplex from "../assets/logos/metaplex.png";
+import pyth from "../assets/logos/pyth.png";
+import polygonscan from "../assets/logos/polygonscan.png";
+import phantom from "../assets/logos/phantom.png";
+import metamask from "../assets/logos/metamask.png";
+import arweave from "../assets/logos/arweave.png";
+import magiceden from "../assets/logos/magiceden.png";
+import solscan from "../assets/logos/solscan.jpeg";
+import polygon from "../assets/logos/polygon.png";
+
 export default function AutoCarousel() {
   const trackRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number | null>(null);
@@ -41,14 +54,20 @@ export default function AutoCarousel() {
     };
   }, []);
 
+
+
   const logos = [
-    { name: "Polymarket", img: "src/assets/polymarket.png" },
-    { name: "Polymarket", img: "src/assets/polymarket.png" },
-    { name: "Polymarket", img: "src/assets/polymarket.png" },
-    { name: "Polymarket", img: "src/assets/polymarket.png" },
-    { name: "Polymarket", img: "src/assets/polymarket.png" },
-    { name: "Polymarket", img: "src/assets/polymarket.png" },
-  
+    { name: "Polymarket", img: polymarket },
+    { name: "Solana", img: solana },
+    { name: "MetaPlex", img: metaplex },
+    { name: "Pyth", img: pyth },
+    { name: "PolygonScan", img: polygonscan },
+    { name: "Phantom", img: phantom },
+    { name: "MetaMask", img: metamask },
+    { name: "Arweave", img: arweave },
+    { name: "Magic Eden", img: magiceden },
+    { name: "Solscan", img: solscan },
+    { name: "Polygon", img: polygon },
   ];
 
   return (
@@ -70,7 +89,7 @@ export default function AutoCarousel() {
               className="flex items-center gap-3 px-6 py-3 bg-gray-900/50 rounded-lg border border-gray-800 select-none pointer-events-none"
               draggable={false}
             >
-              <img src={logo.img} alt={logo.name} className="h-6 w-6" />
+              <img src={logo.img} alt={logo.name} className="h-5 w-auto "  />
               <span className="text-white font-medium whitespace-nowrap">
                 {logo.name}
               </span>

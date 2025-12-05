@@ -15,59 +15,59 @@ const USDC_ADDRESS = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359' as `0x${string
 
 // ERC20 ABI for approve and allowance
 const ERC20_ABI = [
-  {
-    inputs: [
-      { name: 'spender', type: 'address' },
-      { name: 'amount', type: 'uint256' }
-    ],
-    name: 'approve',
-    outputs: [{ name: '', type: 'bool' }],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'spender', type: 'address' }
-    ],
-    name: 'allowance',
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [{ name: 'account', type: 'address' }],
-    name: 'balanceOf',
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  }
+    {
+        inputs: [
+            { name: 'spender', type: 'address' },
+            { name: 'amount', type: 'uint256' }
+        ],
+        name: 'approve',
+        outputs: [{ name: '', type: 'bool' }],
+        stateMutability: 'nonpayable',
+        type: 'function'
+    },
+    {
+        inputs: [
+            { name: 'owner', type: 'address' },
+            { name: 'spender', type: 'address' }
+        ],
+        name: 'allowance',
+        outputs: [{ name: '', type: 'uint256' }],
+        stateMutability: 'view',
+        type: 'function'
+    },
+    {
+        inputs: [{ name: 'account', type: 'address' }],
+        name: 'balanceOf',
+        outputs: [{ name: '', type: 'uint256' }],
+        stateMutability: 'view',
+        type: 'function'
+    }
 ] as const;
 
 export interface DomainInfo {
-  name: string;
-  nameHash: `0x${string}`;
-  owner: `0x${string}`;
-  expiration: number;
-  resolver: `0x${string}`;
-  available: boolean;
+    name: string;
+    nameHash: `0x${string}`;
+    owner: `0x${string}`;
+    expiration: number;
+    resolver: `0x${string}`;
+    available: boolean;
 }
 
 export interface RegistrationResult {
-  success: boolean;
-  txHash?: `0x${string}`;
-  error?: string;
+    success: boolean;
+    txHash?: `0x${string}`;
+    error?: string;
 }
 
 export function useContracts() {
     const { address, chainId } = useAccount();
     const config = useConfig();
-    
-    if (!chainId) {
-        throw new Error('No chain connected');
-    }
-    
-    const contracts = getContractAddresses(chainId);
+
+    // Default to Polygon Mainnet (137) if not connected, to allow read-only operations
+    // This prevents the "white screen" crash when wallet is disconnected
+    const currentChainId = chainId || 137;
+
+    const contracts = getContractAddresses(currentChainId);
 
     /**
      * Helper function to create namehash
@@ -90,7 +90,7 @@ export function useContracts() {
      */
     const getDomainInfo = async (name: string): Promise<DomainInfo> => {
         const nameHash = getNameHash(name);
-        
+
         try {
             // Read from registry contract
             const record = await readContract(config, {
@@ -99,9 +99,9 @@ export function useContracts() {
                 functionName: 'records',
                 args: [nameHash],
             });
-            
+
             const [owner, resolver, expiration] = record as [string, string, bigint];
-            
+
             return {
                 name,
                 nameHash,
@@ -150,7 +150,7 @@ export function useContracts() {
         try {
             const nameHash = getNameHash(name);
             const cleanName = name.replace(/\.poly$/i, '');
-            
+
             // Contract expects number of years, not seconds
             const price = await readContract(config, {
                 address: contracts.priceOracle,
@@ -158,7 +158,7 @@ export function useContracts() {
                 functionName: 'getPrice',
                 args: [nameHash, cleanName, BigInt(durationYears)],
             });
-            
+
             return price as bigint;
         } catch (error) {
             console.error('Error fetching price, using fallback:', error);
@@ -218,7 +218,7 @@ export function useContracts() {
             // Step 1: Approve USDC if needed
             if (currentAllowance < price) {
                 console.log('[registerDomain] Approving USDC spend:', price.toString());
-                
+
                 try {
                     const approveTxHash = await writeContractClient(config, {
                         account: address,
@@ -229,7 +229,7 @@ export function useContracts() {
                     });
 
                     console.log('[registerDomain] Approval tx:', approveTxHash);
-                    
+
                     // Wait for approval transaction
                     await waitForTransactionReceipt(config, { hash: approveTxHash });
                     console.log('[registerDomain] Approval confirmed');
@@ -241,7 +241,7 @@ export function useContracts() {
 
             // Step 2: Register domain (no value - USDC is transferred via transferFrom)
             console.log('[registerDomain] Registering domain:', cleanName);
-            
+
             try {
                 const registerTxHash = await writeContractClient(config, {
                     account: address,
@@ -307,7 +307,7 @@ export function useContracts() {
             // Step 1: Approve USDC if needed
             if (currentAllowance < price) {
                 console.log('[renewDomain] Approving USDC spend:', price.toString());
-                
+
                 try {
                     const approveTxHash = await writeContractClient(config, {
                         account: address,
@@ -328,7 +328,7 @@ export function useContracts() {
 
             // Step 2: Renew domain (no value - USDC is transferred via transferFrom)
             try {
-             const renewTxHash = await writeContractClient(config, {
+                const renewTxHash = await writeContractClient(config, {
                     account: address,
                     address: contracts.controller,
                     abi: PNSControllerABI,
@@ -467,7 +467,7 @@ export function useContracts() {
             }
 
             const nameHash = getNameHash(name);
-            
+
             const result = await readContract(config, {
                 address: domainInfo.resolver,
                 abi: PNSResolverABI,
@@ -493,7 +493,7 @@ export function useContracts() {
             }
 
             const nameHash = getNameHash(name);
-            
+
             const result = await readContract(config, {
                 address: domainInfo.resolver,
                 abi: PNSResolverABI,
@@ -592,10 +592,10 @@ export function useContracts() {
     return {
         // Contract addresses
         contracts,
-        
+
         // Helper functions
         getNameHash,
-        
+
         // Read functions
         getDomainInfo,
         checkAvailability,
@@ -603,7 +603,7 @@ export function useContracts() {
         getTextRecord,
         getAddressRecord,
         getOwnedDomains,
-        
+
         // Write functions
         registerDomain,
         renewDomain,

@@ -36,7 +36,7 @@ export default function Navbar() {
             functionName: 'balanceOf',
             args: [address],
           }) as bigint;
-          
+
           // Convert from 6 decimals to readable format
           const formatted = (Number(balance) / 1e6).toFixed(2);
           setUsdcBalance(formatted);
@@ -76,47 +76,115 @@ export default function Navbar() {
         animate={{ opacity: 1, x: 0 }}
       >
         <Link to="/search">
-          <motion.span 
-            whileHover={{ scale: 1.05 }} 
+          <motion.span
+            whileHover={{ scale: 1.05 }}
             className={`cursor-pointer transition ${isActive('/search') ? 'text-[#2349E2]' : 'hover:text-[#2349E2]'}`}
           >
             Search
           </motion.span>
         </Link>
         <Link to="/marketplace">
-          <motion.span 
-            whileHover={{ scale: 1.05 }} 
+          <motion.span
+            whileHover={{ scale: 1.05 }}
             className={`cursor-pointer transition ${isActive('/marketplace') ? 'text-[#2349E2]' : 'hover:text-[#2349E2]'}`}
           >
             Marketplace
           </motion.span>
         </Link>
         <Link to="/domains">
-          <motion.span 
-            whileHover={{ scale: 1.05 }} 
+          <motion.span
+            whileHover={{ scale: 1.05 }}
             className={`cursor-pointer transition ${isActive('/domains') ? 'text-[#2349E2]' : 'hover:text-[#2349E2]'}`}
           >
             My Domains
           </motion.span>
         </Link>
         <Link to="/profile">
-          <motion.span 
-            whileHover={{ scale: 1.05 }} 
+          <motion.span
+            whileHover={{ scale: 1.05 }}
             className={`cursor-pointer transition ${isActive('/profile') ? 'text-[#2349E2]' : 'hover:text-[#2349E2]'}`}
           >
             Profile
           </motion.span>
         </Link>
 
-        {/* USDC Balance Display */}
-        {address && usdcBalance !== null && (
-          <div className="px-4 py-2 bg-[#2349E2]/20 border border-[#2349E2] rounded text-white text-sm">
-            {usdcBalance} USDC
-          </div>
-        )}
 
-        {/* RainbowKit Connect Button */}
-        <ConnectButton />
+
+        {/* Custom RainbowKit Connect Button */}
+        <ConnectButton.Custom>
+          {({
+            account,
+            chain,
+            openAccountModal,
+            openChainModal,
+            openConnectModal,
+            authenticationStatus,
+            mounted,
+          }) => {
+            const ready = mounted && authenticationStatus !== 'loading';
+            const connected =
+              ready &&
+              account &&
+              chain &&
+              (!authenticationStatus ||
+                authenticationStatus === 'authenticated');
+
+            return (
+              <div
+                {...(!ready && {
+                  'aria-hidden': true,
+                  'style': {
+                    opacity: 0,
+                    pointerEvents: 'none',
+                    userSelect: 'none',
+                  },
+                })}
+              >
+                {(() => {
+                  if (!connected) {
+                    return (
+                      <button
+                        onClick={openConnectModal}
+                        type="button"
+                        className="px-6 py-2 bg-[#2349E2] rounded hover:bg-[#1e3bc5] transition font-medium shadow-[0_0_15px_rgba(35,73,226,0.5)]"
+                      >
+                        Connect Wallet
+                      </button>
+                    );
+                  }
+
+                  if (chain.unsupported) {
+                    return (
+                      <button
+                        onClick={openChainModal}
+                        type="button"
+                        className="px-4 py-2 bg-red-500/20 border border-red-500 rounded text-red-200 text-sm"
+                      >
+                        Wrong network
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <button
+                        onClick={openAccountModal}
+                        type="button"
+                        className="px-4 py-2 bg-[#2349E2]/20 border border-[#2349E2] rounded text-white text-sm hover:bg-[#2349E2]/30 transition flex items-center gap-2"
+                      >
+                        <span>{account.displayName}</span>
+
+                        <div className="w-px h-4 bg-white/30"></div>
+
+                        <span>{usdcBalance} USDC</span>
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          }}
+        </ConnectButton.Custom>
       </motion.div>
 
       {/* Mobile Menu Button */}
@@ -160,7 +228,80 @@ export default function Navbar() {
           <div className="pt-6 border-t border-[#2349E2]/30">
             <div className="text-sm text-gray-400 mb-4">Connect Wallet</div>
             {/* RainbowKit Connect Button for Mobile */}
-            <ConnectButton />
+            <ConnectButton.Custom>
+              {({
+                account,
+                chain,
+                openAccountModal,
+                openChainModal,
+                openConnectModal,
+                authenticationStatus,
+                mounted,
+              }) => {
+                const ready = mounted && authenticationStatus !== 'loading';
+                const connected =
+                  ready &&
+                  account &&
+                  chain &&
+                  (!authenticationStatus ||
+                    authenticationStatus === 'authenticated');
+
+                return (
+                  <div
+                    {...(!ready && {
+                      'aria-hidden': true,
+                      'style': {
+                        opacity: 0,
+                        pointerEvents: 'none',
+                        userSelect: 'none',
+                      },
+                    })}
+                    className="w-full"
+                  >
+                    {(() => {
+                      if (!connected) {
+                        return (
+                          <button
+                            onClick={openConnectModal}
+                            type="button"
+                            className="w-full px-6 py-3 bg-[#2349E2] rounded hover:bg-[#1e3bc5] transition font-medium shadow-[0_0_15px_rgba(35,73,226,0.5)]"
+                          >
+                            Connect Wallet
+                          </button>
+                        );
+                      }
+
+                      if (chain.unsupported) {
+                        return (
+                          <button
+                            onClick={openChainModal}
+                            type="button"
+                            className="w-full px-4 py-3 bg-red-500/20 border border-red-500 rounded text-red-200 text-sm"
+                          >
+                            Wrong network
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <div className="flex w-full">
+                          <button
+                            onClick={openAccountModal}
+                            type="button"
+                            className="w-full px-4 py-3 bg-[#2349E2]/20 border border-[#2349E2] rounded text-white text-sm hover:bg-[#2349E2]/30 transition"
+                          >
+                            {account.displayName}
+                            {account.displayBalance
+                              ? ` (${account.displayBalance})`
+                              : ''}
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              }}
+            </ConnectButton.Custom>
           </div>
         </motion.div>
       )}

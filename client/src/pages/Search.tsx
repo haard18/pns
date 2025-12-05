@@ -140,7 +140,7 @@ const Search: React.FC = () => {
 
   return (
     <motion.div
-      className="min-h-screen w-full text-[var(--text-light)] px-6 py-10"
+      className="min-h-screen w-full text-[var(--text-light)] px-4 md:px-6 py-8 md:py-10"
       style={{ background: "var(--primary-gradient)" }}
       initial="hidden"
       animate="show"
@@ -150,13 +150,13 @@ const Search: React.FC = () => {
       <div
         className={
           searchResults
-            ? "flex flex-col items-start mt-6 gap-5"
-            : "flex flex-col items-center justify-center gap-5 min-h-[60vh]"
+            ? "flex flex-col items-center md:items-start mt-6 gap-5"
+            : "flex flex-col items-center justify-center gap-5 min-h-[60vh] text-center"
         }
       >
         {" "}
         <motion.h1
-          className={`text-4xl mb-8 ${searchResults ? "text-[var(--text-light)]" : "text-[var(--text-soft)]"} tracking-wider`}
+          className={`text-2xl md:text-3xl lg:text-4xl mb-6 md:mb-8 ${searchResults ? "text-[var(--text-light)]" : "text-[var(--text-soft)]"} tracking-wider`}
           variants={fadeInUp}
           initial="hidden"
           animate="show"
@@ -165,7 +165,7 @@ const Search: React.FC = () => {
         </motion.h1>
         {/* Search Bar */}
         <motion.div
-          className="flex gap-4 max-w-3xl"
+          className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full max-w-3xl"
           variants={containerVariants}
           initial="hidden"
           animate="show"
@@ -183,7 +183,7 @@ const Search: React.FC = () => {
           <motion.button
             onClick={handleSearch}
             disabled={isLoading}
-            className="px-8 py-3 bg-[#2349E2] hover:bg-[#1e3bc5] transition rounded-md disabled:opacity-50"
+            className="px-8 py-3 bg-[#2349E2] hover:bg-[#1e3bc5] transition rounded-md disabled:opacity-50 font-medium whitespace-nowrap"
             variants={fadeInUp}
           >
             {isLoading ? "Searching..." : "Search"}
@@ -195,7 +195,7 @@ const Search: React.FC = () => {
       <AnimatePresence>
         {error && (
           <motion.div
-            className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200"
+            className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm md:text-base"
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -207,7 +207,7 @@ const Search: React.FC = () => {
 
       {/* Grid */}
       <motion.div
-        className="grid grid-cols-1  text-[var(--text-soft)] lg:grid-cols-2 gap-8 mt-12"
+        className="grid grid-cols-1 text-[var(--text-soft)] lg:grid-cols-2 gap-6 md:gap-8 mt-8 md:mt-12"
         variants={containerVariants}
         initial="hidden"
         animate="show"
@@ -224,32 +224,32 @@ const Search: React.FC = () => {
                 exit="hidden"
                 variants={fadeInUp}
               >
-                <p className="text-[var(--text-soft)] mb-3">Search Results</p>
+                <p className="text-[var(--text-soft)] mb-3 text-sm md:text-base">Search Results</p>
 
                 <motion.div
-                  className="border border-[#2349E2]/50 rounded-lg p-5"
+                  className="border border-[#2349E2]/50 rounded-lg p-4 md:p-5"
                   variants={scaleIn}
                   initial="hidden"
                   animate="show"
                   exit={{ opacity: 0, scale: 0.96 }}
                 >
                   <div className="space-y-4">
-                    <div className="flex justify-between items-start text-[var(--text-soft)]">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-[var(--text-soft)] gap-4 sm:gap-0">
                       <div>
-                        <p className="text-sm text-[var(--text-soft)] mb-1">
+                        <p className="text-xs md:text-sm text-[var(--text-soft)] mb-1">
                           Domain
                         </p>
-                        <span className="text-xl font-semibold text-[var(--text-soft)]">
+                        <span className="text-lg md:text-xl font-semibold text-[var(--text-soft)] break-all">
                           {searchResults.name}
                         </span>
                       </div>
 
-                      <div className="text-right">
-                        <p className="text-sm text-[var(--text-soft)] mb-1">
+                      <div className="text-left sm:text-right w-full sm:w-auto">
+                        <p className="text-xs md:text-sm text-[var(--text-soft)] mb-1">
                           Price
                         </p>
                         <span
-                          className={`text-md font-bold ${
+                          className={`text-md md:text-lg font-bold ${
                             searchResults.available
                               ? "text-green-400"
                               : "text-red-400"
@@ -261,17 +261,15 @@ const Search: React.FC = () => {
                               }`
                             : "Unavailable"}
                         </span>
-
-
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-4 mt-4">
+                  <div className="flex flex-col sm:flex-row gap-3 md:gap-4 mt-6">
                     <motion.button
                       whileHover={{ scale: 1.03 }}
                       disabled={!searchResults.available}
-                      className="flex-1 px-4 py-3 border border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.08)] rounded-md transition disabled:opacity-50"
+                      className="flex-1 px-4 py-3 border border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.08)] rounded-md transition disabled:opacity-50 text-sm md:text-base"
                     >
                       Add to Cart
                     </motion.button>
@@ -289,7 +287,7 @@ const Search: React.FC = () => {
                           )}&price=${encodeURIComponent(searchResults.price)}`
                         );
                       }}
-                      className="flex-1 px-4 py-3 bg-[#2349E2] hover:bg-[#1e3bc5] transition rounded-md disabled:opacity-50"
+                      className="flex-1 px-4 py-3 bg-[#2349E2] hover:bg-[#1e3bc5] transition rounded-md disabled:opacity-50 text-sm md:text-base font-medium"
                     >
                       Register Now
                     </motion.button>
@@ -304,8 +302,7 @@ const Search: React.FC = () => {
                 initial="hidden"
                 animate="show"
               >
-                <p className="text-[var(--text-soft)]">
-                  Search for a domain to get started
+                <p className="text-[var(--text-soft)] text-sm md:text-base">
                 </p>
               </motion.div>
             )}
@@ -313,7 +310,7 @@ const Search: React.FC = () => {
         </div>
 
         {/* Suggestions (right) */}
-        <div>
+        <div className="mt-8 lg:mt-0">
           {/* Suggestions always rendered, AnimatePresence only for children */}
           {suggestedDomains.length > 0 && (
             <motion.aside
@@ -324,7 +321,7 @@ const Search: React.FC = () => {
               key="suggestions"
             >
               <div className="flex justify-between items-center mb-3">
-                <p className="text-[var(--text-soft)]">
+                <p className="text-[var(--text-soft)] text-sm md:text-base">
                   Alternative Suggestions
                 </p>
               </div>
@@ -338,21 +335,21 @@ const Search: React.FC = () => {
                   {suggestedDomains.map((domain) => (
                     <motion.div
                       key={domain}
-                      className="flex justify-between items-center bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] p-4 rounded-lg hover:border-[#2349E2]/50 transition"
+                      className="flex flex-col sm:flex-row justify-between items-center bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] p-4 rounded-lg hover:border-[#2349E2]/50 transition gap-4 sm:gap-0"
                       variants={scaleIn}
                       initial="hidden"
                       animate="show"
                       exit={{ opacity: 0, scale: 0.96 }}
                     >
-                      <span className="text-white">{domain}</span>
-                      <div className="flex gap-3">
+                      <span className="text-white text-base md:text-lg break-all">{domain}</span>
+                      <div className="flex gap-3 w-full sm:w-auto">
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           onClick={() => {
                             setSearchInput(domain.replace(".poly", ""));
                             handleSearch();
                           }}
-                          className="px-3 py-2 border border-[rgba(255,255,255,0.2)] rounded-md hover:bg-[rgba(255,255,255,0.08)] transition"
+                          className="flex-1 sm:flex-none px-3 py-2 border border-[rgba(255,255,255,0.2)] rounded-md hover:bg-[rgba(255,255,255,0.08)] transition text-sm"
                         >
                           Check
                         </motion.button>
@@ -374,7 +371,7 @@ const Search: React.FC = () => {
                               )}&price=${encodeURIComponent(price)}`
                             );
                           }}
-                          className="px-3 py-2 bg-[#2349E2] hover:bg-[#1e3bc5] transition rounded-md"
+                          className="flex-1 sm:flex-none px-3 py-2 bg-[#2349E2] hover:bg-[#1e3bc5] transition rounded-md text-sm font-medium"
                         >
                           Register
                         </motion.button>

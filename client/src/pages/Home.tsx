@@ -54,20 +54,20 @@ const Home = () => {
 
         {/* Hero */}
         <motion.div
-          className="flex flex-col items-center text-center mt-50 px-4 pb-40"
+          className="flex flex-col items-center text-center mt-32 md:mt-40 lg:mt-50 px-4 pb-20 md:pb-40"
           initial="initial"
           animate="animate"
           variants={staggerContainer}
         >
           <motion.h1
-            className="text-6xl text-(--text-light) max-w-4xl leading-tight"
+            className="text-3xl md:text-3xl lg:text-4xl text-(--text-light) max-w-4xl leading-tight"
             variants={fadeInUp}
           >
             Your Polymarket Identity - Simplified{" "}
           </motion.h1>
 
           <motion.p
-            className="text-lg text-(--text-soft) mt-4 max-w-3xl"
+            className="text-base text-sm md:text-md text-(--text-soft) mt-4 max-w-3xl"
             variants={fadeInUp}
           >
             Complete control of your Identity on Polymarket and web3 environment
@@ -84,22 +84,21 @@ const Home = () => {
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               placeholder="Search your .poly domain Now"
-              className="flex-1 px-4 py-3 bg-transparent text-(--text-light) placeholder-white/50 outline-none"
+              className="flex-1 px-4 py-3 bg-transparent text-white placeholder-white placeholder-opacity-100 outline-none min-w-0"
             />
 
             <div className="relative inline-block m-4">
-              {/* Soft Glow */}
+              {/* Glow */}
               <div
                 className="absolute inset-0 blur-xl opacity-20"
                 style={{
                   background:
-                    "radial-gradient(circle, #2349E2 0%, transparent 70%)",
+                    'radial-gradient(circle, #2349E2 0%, transparent 70%)',
                 }}
               ></div>
 
-              {/* Button */}
               <motion.button
                 onClick={handleSearch}
                 className="relative px-6 py-3 border border-[#2349E2] transition text-white font-medium"
@@ -110,6 +109,7 @@ const Home = () => {
               </motion.button>
             </div>
           </motion.div>
+
         </motion.div>
 
         {/* Bars image at the bottom */}
@@ -150,7 +150,7 @@ const Home = () => {
 
           <motion.p
             className="text-(--text-soft) max-w-2xl mx-auto"
-            style={{ color: "#8D9CCF" }}
+            style={{ color: "black" }}
             variants={fadeInUp}
             initial="initial"
             whileInView="animate"
@@ -162,133 +162,120 @@ const Home = () => {
         </motion.div>
 
         {/* Real Masonry Grid */}
+        {/* Real Masonry Grid */}
         {/* Masonry Grid - 2 columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl mx-auto">
+
           {/* LEFT COLUMN */}
           <div className="flex flex-col gap-6">
-            {/* SMALL - Own your name */}
+
+            {/* 1 — Own your name (RECTANGLE NOW) */}
             <motion.div
-              className="bg-[#EDEBFF] border border-[#C8C5F3] p-8 flex flex-col justify-between"
+              className="bg-[#EDEBFF] border-2 border-[#C8C5F3] p-8 rounded-lg flex flex-col"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              whileHover={{ y: -8, boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}
+              transition={{ duration: 0.5 }}
+              whileHover={{ y: -6, boxShadow: "0 12px 30px rgba(0,0,0,0.08)" }}
             >
               <img
                 src={left1}
                 alt="Own Your Name"
-                className="w-full h-40 object-cover mb-6 rounded"
+                className="w-full h-52 object-contain mb-6"
               />
-              <div>
-                <h3 className="text-xl text-black font-semibold mb-2">
-                  Own your name
-                </h3>
-                <p
-                  className="text-(--text-dark) text-sm"
-                  style={{ color: "#39394A" }}
-                >
-                  Your .poly domain is completely yours — decentralized, secure,
-                  and transferable.
-                </p>
-              </div>
+
+              <h3 className="text-xl text-black font-semibold mb-2">Own your name</h3>
+              <p className="text-[#39394A] text-sm leading-relaxed">
+                Your .poly domain is more than just a name — it's completely yours and
+                verifiable on the blockchain.
+              </p>
             </motion.div>
 
-            {/* BIG - Share with ease */}
+            {/* 2 — Share with ease (SQUARE NOW) */}
             <motion.div
-              className="bg-[#EDEBFF] border border-[#C8C5F3]  p-8 flex flex-col justify-between"
+              className="bg-[#EDEBFF] border-2 border-[#C8C5F3] p-8 rounded-lg flex flex-col"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              whileHover={{ y: -8, boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              whileHover={{ y: -6, boxShadow: "0 12px 30px rgba(0,0,0,0.08)" }}
             >
               <img
                 src={left2}
                 alt="Share with ease"
-                className="w-full h-56 object-contain mb-6 rounded"
+                className="w-full h-44 object-contain mb-6"
               />
-              <div>
-                <h3 className="text-xl text-black font-semibold mb-2">
-                  Share with ease
-                </h3>
-                <p
-                  className="text-(--text-dark) text-sm"
-                  style={{ color: "#39394A" }}
-                >
-                  Send and receive predictions, data, or rewards directly
-                  through yourname.poly.
-                </p>
-              </div>
+
+              <h3 className="text-xl text-black font-semibold mb-2">Share with ease</h3>
+              <p className="text-[#39394A] text-sm leading-relaxed">
+                Send and receive predictions, data, or rewards directly through
+                yourname.poly.
+              </p>
             </motion.div>
           </div>
 
           {/* RIGHT COLUMN */}
           <div className="flex flex-col gap-6">
-            {/* BIG - Unify identity */}
+
+            {/* 3 — Unify your identity (SQUARE NOW) */}
             <motion.div
-              className="bg-[#EDEBFF] border border-[#C8C5F3]  p-8 flex flex-col justify-between"
+              className="bg-[#EDEBFF] border-2 border-[#C8C5F3] p-8 rounded-lg flex flex-col"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.15 }}
-              whileHover={{ y: -8, boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}
+              whileHover={{ y: -6, boxShadow: "0 12px 30px rgba(0,0,0,0.08)" }}
             >
               <img
                 src={right1}
-                alt="Unify Identity"
-                className="w-full h-56 object-contain mb-6 rounded"
+                alt="Unify your identity"
+                className="w-full h-44 object-contain mb-6"
               />
-              <div>
-                <h3 className="text-xl text-black font-semibold mb-2">
-                  Unify your identity
-                </h3>
-                <p
-                  className="text-(--text-dark) text-sm"
-                  style={{ color: "#39394A" }}
-                >
-                  Link your wallet, predictions, stats, and profile under one
-                  name.
-                </p>
-              </div>
+
+              <h3 className="text-xl text-black font-semibold mb-2">
+                Unify your identity
+              </h3>
+              <p className="text-[#39394A] text-sm leading-relaxed">
+                Link all your existing wallets including polymarket address to a single
+                domain name.
+              </p>
             </motion.div>
 
-            {/* SMALL - Build community */}
+            {/* 4 — Build community (RECTANGLE NOW) */}
             <motion.div
-              className="bg-[#EDEBFF] border border-[#C8C5F3]  p-8 flex flex-col justify-between"
+              className="bg-[#EDEBFF] border-2 border-[#C8C5F3] p-8 rounded-lg flex flex-col"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.25 }}
-              whileHover={{ y: -8, boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}
+              whileHover={{ y: -6, boxShadow: "0 12px 30px rgba(0,0,0,0.08)" }}
             >
               <img
                 src={right2}
                 alt="Build your community"
-                className="w-full h-40 object-contain mb-6 rounded"
+                className="w-full h-52 object-contain mb-6"
               />
-              <div>
-                <h3 className="text-xl text-black font-semibold mb-2">
-                  Build your community
-                </h3>
-                <p
-                  className="text-(--text-dark) text-sm"
-                  style={{ color: "#39394A" }}
-                >
-                  Create sub-domains for teams, projects, or collaborators —
-                  like teamname.poly or project.poly.
-                </p>
-              </div>
+
+              <h3 className="text-xl text-black font-semibold mb-2">
+                Build Your Community with Sub-domains
+              </h3>
+              <p className="text-[#39394A] text-sm leading-relaxed">
+                Create sub-domains for teams, projects, or collaborators — like
+                teamname.poly or project.poly.
+              </p>
             </motion.div>
+
           </div>
         </div>
+
+
       </section>
       <section
-        className="py-24 px-6 "
-        style={{ background: "var(--primary-gradient)" }}
+        className="py-16 md:py-24 px-4 md:px-6"
+        style={{ background: "var(--primary-gradient-reverse)" }}
       >
         <motion.div
-          className="max-w-7xl mx-auto  mb-16"
+          className="max-w-7xl mx-auto mb-12 md:mb-16"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
@@ -306,7 +293,7 @@ const Home = () => {
           </motion.p>
 
           <motion.h1
-            className="text-4xl text-white font-semibold mb-6"
+            className="text-3xl md:text-4xl text-white font-semibold mb-6"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -316,7 +303,7 @@ const Home = () => {
           </motion.h1>
 
           <motion.p
-            className="text-(--text-soft) max-w-3xl mb-6"
+            className="text-(--text-soft) max-w-3xl mb-6 text-sm md:text-base"
             style={{ color: "var(--text-soft)" }}
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
@@ -328,7 +315,7 @@ const Home = () => {
           </motion.p>
 
           <motion.p
-            className="text-(--text-soft) max-w-3xl mb-10"
+            className="text-(--text-soft) max-w-3xl mb-10 text-sm md:text-base"
             style={{ color: "var(--text-soft)" }}
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
@@ -342,14 +329,14 @@ const Home = () => {
 
           {/* BUTTONS */}
           <motion.div
-            className="flex gap-4"
+            className="flex flex-col sm:flex-row gap-4"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
             <motion.button
-              className="px-6 py-3 border border-[#2349E2] text-white font-medium"
+              className="px-6 py-3 border border-[#2349E2] text-white font-medium text-center"
               whileHover={{
                 scale: 1.05,
                 boxShadow: "0 0 20px rgba(35, 73, 226, 0.5)",
@@ -360,7 +347,7 @@ const Home = () => {
             </motion.button>
 
             <motion.button
-              className="px-6 py-3 bg-transparent border border-white/20 hover:bg-white/10 text-white font-medium flex items-center gap-2"
+              className="px-6 py-3 bg-transparent border border-white/20 hover:bg-white/10 text-white font-medium flex items-center justify-center gap-2 text-center"
               whileHover={{
                 scale: 1.05,
                 backgroundColor: "rgba(255, 255, 255, 0.1)",
@@ -373,10 +360,10 @@ const Home = () => {
         </motion.div>
 
         {/* THREE HORIZONTAL CARDS */}
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 card">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 card">
           {/* CARD 01 */}
           <motion.div
-            className=" border border-[#2349E2] p-8 backdrop-blur-md hover:bg-white/10 transition text-left"
+            className="border border-[#2349E2] p-6 md:p-8 backdrop-blur-md hover:bg-white/10 transition text-left"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -387,7 +374,7 @@ const Home = () => {
             }}
           >
             {/* Top row: number + image */}
-            <div className="flex items-start justify-between mb-10">
+            <div className="flex items-start justify-between mb-8 md:mb-10">
               <motion.p
                 className="text-sm font-bold text-(--primary)"
                 style={{ color: "#436BFF" }}
@@ -406,7 +393,7 @@ const Home = () => {
             </div>
 
             {/* Title */}
-            <h3 className="text-xl text-white font-semibold mb-2">
+            <h3 className="text-lg md:text-xl text-white font-semibold mb-2">
               Your Identity, Your Space
             </h3>
 
@@ -422,7 +409,7 @@ const Home = () => {
 
           {/* CARD 02 */}
           <motion.div
-            className=" border border-[#2349E2] p-8 backdrop-blur-md hover:bg-white/10 transition text-left"
+            className="border border-[#2349E2] p-6 md:p-8 backdrop-blur-md hover:bg-white/10 transition text-left"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -433,7 +420,7 @@ const Home = () => {
             }}
           >
             {/* Top row: number + image */}
-            <div className="flex items-start justify-between mb-10">
+            <div className="flex items-start justify-between mb-8 md:mb-10">
               <motion.p
                 className="text-sm font-bold text-(--primary)"
                 style={{ color: "#436BFF" }}
@@ -452,7 +439,7 @@ const Home = () => {
             </div>
 
             {/* Title */}
-            <h3 className="text-xl text-white font-semibold mb-2">
+            <h3 className="text-lg md:text-xl text-white font-semibold mb-2">
               Connect & Collaborate
             </h3>
 
@@ -468,7 +455,7 @@ const Home = () => {
           </motion.div>
 
           <motion.div
-            className=" border border-[#2349E2] p-8 backdrop-blur-md hover:bg-white/10 transition text-left"
+            className="border border-[#2349E2] p-6 md:p-8 backdrop-blur-md hover:bg-white/10 transition text-left"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -479,7 +466,7 @@ const Home = () => {
             }}
           >
             {/* Top row: number + image */}
-            <div className="flex items-start justify-between mb-10">
+            <div className="flex items-start justify-between mb-8 md:mb-10">
               <motion.p
                 className="text-sm font-bold text-(--primary)"
                 style={{ color: "#436BFF" }}
@@ -498,7 +485,7 @@ const Home = () => {
             </div>
 
             {/* Title */}
-            <h3 className="text-xl text-white font-semibold mb-2">
+            <h3 className="text-lg md:text-xl text-white font-semibold mb-2">
               Grow with Predicitify{" "}
             </h3>
 
@@ -515,10 +502,10 @@ const Home = () => {
         </div>
       </section>
       <AutoCarousel />
-      <footer className="bg-[#020215] py-16 px-10">
+      <footer className="bg-[#020215] py-12 md:py-16 px-4 md:px-6 lg:px-10">
         {/* FULL-WIDTH GRID */}
         <motion.div
-          className="w-full mx-16 grid grid-cols-1 md:grid-cols-2 gap-16"
+          className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
@@ -530,6 +517,7 @@ const Home = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
+            className="flex flex-col items-center md:items-start"
           >
             <motion.img
               src={logo}
@@ -565,7 +553,7 @@ const Home = () => {
 
           {/* RIGHT SIDE - 3 COLUMNS */}
           <motion.div
-            className="grid grid-cols-2 sm:grid-cols-3 gap-10"
+            className="grid grid-cols-2 sm:grid-cols-3 gap-8 md:gap-10 text-center md:text-left"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -671,7 +659,7 @@ const Home = () => {
 
         {/* COPYRIGHT */}
         <motion.div
-          className="mt-16 text-center text-(--text-soft) text-sm"
+          className="mt-12 md:mt-16 text-center text-(--text-soft) text-sm"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}

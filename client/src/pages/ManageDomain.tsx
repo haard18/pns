@@ -222,10 +222,10 @@ const ManageDomain = () => {
     <div className="min-h-screen overflow-hidden" style={{ background: "var(--primary-gradient)" }}>
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-6 pt-8 pb-12">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 pt-6 md:pt-8 pb-10 md:pb-12">
         {/* Header */}
         <motion.div
-          className="mb-8"
+          className="mb-6 md:mb-8"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -238,14 +238,16 @@ const ManageDomain = () => {
             </svg>
             Back to Domains
           </button>
-          <h1 className="text-4xl text-white font-bold mb-2">{domainName}</h1>
-          <div className="flex items-center gap-4 text-[var(--text-soft)]">
-            <span>Owner: {domainDetails?.owner ? `${domainDetails.owner.slice(0, 8)}...${domainDetails.owner.slice(-4)}` : 'Loading...'}</span>
-            <span>•</span>
-            <span>Expires: {domainDetails?.expirationDate || 'Loading...'}</span>
+          <div className="flex flex-col md:flex-row md:items-end gap-2 md:gap-4 mb-2">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl text-white font-bold break-all">{domainName}</h1>
             {domainDetails?.owner && address && domainDetails.owner.toLowerCase() !== address.toLowerCase() && (
-              <span className="text-yellow-500 text-sm">(You are not the owner)</span>
+               <span className="text-yellow-500 text-sm md:mb-1.5">(You are not the owner)</span>
             )}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-[var(--text-soft)] text-sm md:text-base">
+            <span>Owner: {domainDetails?.owner ? `${domainDetails.owner.slice(0, 8)}...${domainDetails.owner.slice(-4)}` : 'Loading...'}</span>
+            <span className="hidden sm:inline">•</span>
+            <span>Expires: {domainDetails?.expirationDate || 'Loading...'}</span>
           </div>
         </motion.div>
 
@@ -259,7 +261,7 @@ const ManageDomain = () => {
           <button 
             onClick={handleRenewDomain}
             disabled={renewing}
-            className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-6 hover:border-[#2349E2] transition text-left group disabled:opacity-50"
+            className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-5 md:p-6 hover:border-[#2349E2] transition text-left group disabled:opacity-50"
           >
             <div className="text-white text-lg font-semibold mb-2 group-hover:text-[#2349E2] transition">{renewing ? 'Renewing...' : 'Renew Domain'}</div>
             <div className="text-[var(--text-soft)] text-sm">Extend your domain ownership</div>
@@ -267,12 +269,12 @@ const ManageDomain = () => {
           <button 
             onClick={() => setShowTransferModal(true)}
             disabled={!domainDetails?.owner || domainDetails?.owner.toLowerCase() !== address?.toLowerCase()}
-            className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-6 hover:border-[#2349E2] transition text-left group disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-5 md:p-6 hover:border-[#2349E2] transition text-left group disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="text-white text-lg font-semibold mb-2 group-hover:text-[#2349E2] transition">Transfer Domain</div>
             <div className="text-[var(--text-soft)] text-sm">Transfer to another wallet</div>
           </button>
-          <button className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-6 hover:border-red-500 transition text-left group">
+          <button className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-5 md:p-6 hover:border-red-500 transition text-left group">
             <div className="text-white text-lg font-semibold mb-2 group-hover:text-red-500 transition">List for Sale</div>
             <div className="text-[var(--text-soft)] text-sm">Put your domain on the market</div>
           </button>
@@ -280,14 +282,14 @@ const ManageDomain = () => {
 
         {/* Tabs */}
         <motion.div
-          className="flex gap-3 mb-8"
+          className="flex gap-2 md:gap-3 mb-8 overflow-x-auto pb-2"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
         >
           <button
             onClick={() => setActiveTab("records")}
-            className={`px-6 py-2 rounded-lg font-medium transition ${
+            className={`px-4 md:px-6 py-2 rounded-lg font-medium transition whitespace-nowrap text-sm md:text-base ${
               activeTab === "records"
                 ? "bg-[#2349E2] text-white"
                 : "bg-[rgba(255,255,255,0.02)] text-[var(--text-soft)] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)]"
@@ -297,7 +299,7 @@ const ManageDomain = () => {
           </button>
           <button
             onClick={() => setActiveTab("subdomains")}
-            className={`px-6 py-2 rounded-lg font-medium transition ${
+            className={`px-4 md:px-6 py-2 rounded-lg font-medium transition whitespace-nowrap text-sm md:text-base ${
               activeTab === "subdomains"
                 ? "bg-[#2349E2] text-white"
                 : "bg-[rgba(255,255,255,0.02)] text-[var(--text-soft)] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)]"
@@ -307,7 +309,7 @@ const ManageDomain = () => {
           </button>
           <button
             onClick={() => setActiveTab("permissions")}
-            className={`px-6 py-2 rounded-lg font-medium transition ${
+            className={`px-4 md:px-6 py-2 rounded-lg font-medium transition whitespace-nowrap text-sm md:text-base ${
               activeTab === "permissions"
                 ? "bg-[#2349E2] text-white"
                 : "bg-[rgba(255,255,255,0.02)] text-[var(--text-soft)] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)]"
@@ -324,12 +326,12 @@ const ManageDomain = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl text-white font-semibold">Domain Records</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <h2 className="text-xl md:text-2xl text-white font-semibold">Domain Records</h2>
               <button
                 onClick={() => setIsAddingRecord(!isAddingRecord)}
                 disabled={savingRecord}
-                className="bg-[#2349E2] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50"
+                className="bg-[#2349E2] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50 w-full sm:w-auto"
               >
                 + Add Record
               </button>
@@ -337,12 +339,12 @@ const ManageDomain = () => {
 
             {/* Status Messages */}
             {recordError && (
-              <div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200">
+              <div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
                 {recordError}
               </div>
             )}
             {recordSuccess && (
-              <div className="mb-4 p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200">
+              <div className="mb-4 p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 text-sm">
                 {recordSuccess}
               </div>
             )}
@@ -352,13 +354,13 @@ const ManageDomain = () => {
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
-                className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-6 mb-4"
+                className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-4 md:p-6 mb-4"
               >
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <select
                     value={newRecord.key}
                     onChange={(e) => setNewRecord({ ...newRecord, key: e.target.value })}
-                    className="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.06)] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#2349E2]"
+                    className="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.06)] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#2349E2] w-full"
                   >
                     <option value="">Select record type...</option>
                     <option value="Website">Website</option>
@@ -376,14 +378,14 @@ const ManageDomain = () => {
                     placeholder="Value"
                     value={newRecord.value}
                     onChange={(e) => setNewRecord({ ...newRecord, value: e.target.value })}
-                    className="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.06)] rounded-lg px-4 py-3 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2]"
+                    className="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.06)] rounded-lg px-4 py-3 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] w-full"
                   />
                 </div>
                 <div className="flex gap-3">
                   <button
                     onClick={handleAddRecord}
                     disabled={savingRecord || !newRecord.key || !newRecord.value}
-                    className="bg-[#2349E2] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50"
+                    className="flex-1 md:flex-none bg-[#2349E2] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50"
                   >
                     {savingRecord ? 'Saving...' : 'Save Record'}
                   </button>
@@ -392,7 +394,7 @@ const ManageDomain = () => {
                       setIsAddingRecord(false);
                       setNewRecord({ key: "", value: "" });
                     }}
-                    className="bg-[rgba(255,255,255,0.02)] text-[var(--text-soft)] px-6 py-2 rounded-lg font-medium border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] transition"
+                    className="flex-1 md:flex-none bg-[rgba(255,255,255,0.02)] text-[var(--text-soft)] px-6 py-2 rounded-lg font-medium border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] transition"
                   >
                     Cancel
                   </button>
@@ -416,19 +418,19 @@ const ManageDomain = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.4 + index * 0.05 }}
-                    className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-5 hover:border-[rgba(255,255,255,0.12)] transition group"
+                    className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-4 md:p-5 hover:border-[rgba(255,255,255,0.12)] transition group"
                     style={{ backdropFilter: "blur(10px)" }}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="text-[var(--text-soft)] text-sm mb-1">{record.key}</div>
-                        <div className="text-white font-medium break-all">{record.value}</div>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[var(--text-soft)] text-xs md:text-sm mb-1">{record.key}</div>
+                        <div className="text-white font-medium break-all text-sm md:text-base">{record.value}</div>
                       </div>
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => handleDeleteRecord(index)}
                           disabled={savingRecord}
-                          className="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-500/20 transition border border-red-500/20 disabled:opacity-50"
+                          className="bg-red-500/10 text-red-500 px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium hover:bg-red-500/20 transition border border-red-500/20 disabled:opacity-50 opacity-100 md:opacity-0 md:group-hover:opacity-100"
                         >
                           Delete
                         </button>
@@ -472,14 +474,14 @@ const ManageDomain = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-8"
+            className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-5 md:p-8"
           >
-            <h3 className="text-xl text-white font-semibold mb-6">Domain Permissions</h3>
+            <h3 className="text-lg md:text-xl text-white font-semibold mb-6">Domain Permissions</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between py-3 border-b border-[rgba(255,255,255,0.06)]">
                 <div>
-                  <div className="text-white font-medium">Transfer Lock</div>
-                  <div className="text-[var(--text-soft)] text-sm">Prevent domain transfers</div>
+                  <div className="text-white font-medium text-sm md:text-base">Transfer Lock</div>
+                  <div className="text-[var(--text-soft)] text-xs md:text-sm">Prevent domain transfers</div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" />
@@ -488,8 +490,8 @@ const ManageDomain = () => {
               </div>
               <div className="flex items-center justify-between py-3 border-b border-[rgba(255,255,255,0.06)]">
                 <div>
-                  <div className="text-white font-medium">Public Records</div>
-                  <div className="text-[var(--text-soft)] text-sm">Make records publicly visible</div>
+                  <div className="text-white font-medium text-sm md:text-base">Public Records</div>
+                  <div className="text-[var(--text-soft)] text-xs md:text-sm">Make records publicly visible</div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" defaultChecked />
@@ -498,8 +500,8 @@ const ManageDomain = () => {
               </div>
               <div className="flex items-center justify-between py-3">
                 <div>
-                  <div className="text-white font-medium">Auto-Renew</div>
-                  <div className="text-[var(--text-soft)] text-sm">Automatically renew before expiration</div>
+                  <div className="text-white font-medium text-sm md:text-base">Auto-Renew</div>
+                  <div className="text-[var(--text-soft)] text-xs md:text-sm">Automatically renew before expiration</div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" />
