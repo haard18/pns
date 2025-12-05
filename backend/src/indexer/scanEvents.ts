@@ -154,6 +154,8 @@ export class EventIndexer {
   private async processBatch(range: ScanRange): Promise<void> {
     const contractAddresses = {
       registry: Config.contracts.registry,
+      registrar: Config.contracts.registrar,
+      controller: Config.contracts.controller,
       resolver: Config.contracts.resolver,
       domainNFT: Config.contracts.domainNFT,
     };
@@ -162,10 +164,25 @@ export class EventIndexer {
 
     try {
       // Fetch logs from all contracts with configured chunk size
-      const [registryLogs, resolverLogs, nftLogs] = await Promise.all([
+      // Registrar is the KEY contract - it emits events with plaintext names!
+      const [registryLogs, registrarLogs, controllerLogs, resolverLogs, nftLogs] = await Promise.all([
         this.eventParser.fetchLogs(
           contractAddresses.registry,
           eventFilters.registry,
+          range.fromBlock,
+          range.toBlock,
+          Config.indexer.logChunkSize
+        ),
+        this.eventParser.fetchLogs(
+          contractAddresses.registrar,
+          eventFilters.registrar,
+          range.fromBlock,
+          range.toBlock,
+          Config.indexer.logChunkSize
+        ),
+        this.eventParser.fetchLogs(
+          contractAddresses.controller,
+          eventFilters.controller,
           range.fromBlock,
           range.toBlock,
           Config.indexer.logChunkSize
@@ -186,7 +203,7 @@ export class EventIndexer {
         ),
       ]);
 
-      const allLogs = [...registryLogs, ...resolverLogs, ...nftLogs];
+      const allLogs = [...registryLogs, ...registrarLogs, ...controllerLogs, ...resolverLogs, ...nftLogs];
 
       // Sort logs by block number and transaction index
       allLogs.sort((a, b) => {
@@ -216,7 +233,7 @@ export class EventIndexer {
   /**
    * Process a single log entry
    */
-  private async processLog(log: any, contractAddresses: { registry: string; resolver: string; domainNFT: string }): Promise<void> {
+  private async processLog(log: any, contractAddresses: { registry: string; registrar: string; resolver: string; domainNFT: string }): Promise<void> {
     try {
       const parsedEvent = await this.eventParser.parseEvent(log, contractAddresses);
 
@@ -281,9 +298,19 @@ export class EventIndexer {
    * Handle NameRegistered event
    */
   private async handleNameRegistered(event: DomainEvent): Promise<void> {
+    // Skip events with empty domain names
+    if (!event.name || event.name.trim() === '') {
+      logger.warn('Skipping NameRegistered event with empty name', {
+        nameHash: event.nameHash,
+        blockNumber: event.blockNumber,
+        transactionHash: event.transactionHash,
+      });
+      return;
+    }
+
     await database.upsertDomain({
       nameHash: event.nameHash,
-      name: event.name!,
+      name: event.name,
       owner: event.owner!,
       resolver: event.resolver!,
       expiration: event.expiration!,
@@ -297,7 +324,7 @@ export class EventIndexer {
     // Also update via domain service for backwards compatibility
     await this.domainService.createOrUpdateDomain({
       nameHash: event.nameHash,
-      name: event.name!,
+      name: event.name,
       owner: event.owner!,
       resolver: event.resolver!,
       expiration: event.expiration!,

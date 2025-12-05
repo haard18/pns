@@ -31,12 +31,18 @@ export interface AddressChangedEvent extends ParsedEvent {
   newAddress: string;
 }
 
-// ABI for Registry events
+// ABI for Registry events (doesn't include plaintext name)
 const REGISTRY_EVENT_ABI = [
   'event NameRegistered(bytes32 indexed nameHash, string name, address indexed owner, address indexed resolver, uint64 expiration)',
   'event NameRenewed(bytes32 indexed nameHash, uint64 newExpiration)',
   'event OwnershipTransferred(bytes32 indexed nameHash, address indexed previousOwner, address indexed newOwner)',
   'event ResolverUpdated(bytes32 indexed nameHash, address indexed newResolver)',
+];
+
+// ABI for Registrar events (includes plaintext name!)
+const REGISTRAR_EVENT_ABI = [
+  'event NameRegistered(bytes32 indexed nameHash, string name, address indexed owner, uint256 price, uint64 expiration)',
+  'event NameRenewed(bytes32 indexed nameHash, string name, uint256 price, uint64 newExpiration)',
 ];
 
 // ABI for Resolver events
@@ -56,12 +62,14 @@ const NFT_EVENT_ABI = [
 export class EventParser {
   private provider: ethers.JsonRpcProvider;
   private registryInterface: Interface;
+  private registrarInterface: Interface;
   private resolverInterface: Interface;
   private nftInterface: Interface;
 
   constructor(rpcUrl: string) {
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
     this.registryInterface = new Interface(REGISTRY_EVENT_ABI);
+    this.registrarInterface = new Interface(REGISTRAR_EVENT_ABI);
     this.resolverInterface = new Interface(RESOLVER_EVENT_ABI);
     this.nftInterface = new Interface(NFT_EVENT_ABI);
   }
@@ -69,12 +77,15 @@ export class EventParser {
   /**
    * Decode raw log using appropriate interface
    */
-  private decodeLog(log: any, contractType: 'registry' | 'resolver' | 'nft'): { eventName: string; args: any } | null {
+  private decodeLog(log: any, contractType: 'registry' | 'registrar' | 'resolver' | 'nft'): { eventName: string; args: any } | null {
     try {
       let iface: Interface;
       switch (contractType) {
         case 'registry':
           iface = this.registryInterface;
+          break;
+        case 'registrar':
+          iface = this.registrarInterface;
           break;
         case 'resolver':
           iface = this.resolverInterface;
@@ -104,6 +115,15 @@ export class EventParser {
    * Parse NameRegistered event from decoded args
    */
   parseNameRegistered(log: any, args: any): DomainEvent {
+    // Debug log to see what args we're getting
+    if (!args.name || args.name === '') {
+      logger.warn('NameRegistered event has empty name', {
+        nameHash: args.nameHash,
+        args: args,
+        blockNumber: log.blockNumber,
+      });
+    }
+
     return {
       eventName: 'NameRegistered',
       blockNumber: log.blockNumber,
@@ -227,11 +247,12 @@ export class EventParser {
   /**
    * Determine contract type from address
    */
-  private getContractType(address: string, contractAddresses?: { registry?: string; resolver?: string; domainNFT?: string }): 'registry' | 'resolver' | 'nft' | null {
+  private getContractType(address: string, contractAddresses?: { registry?: string; registrar?: string; resolver?: string; domainNFT?: string }): 'registry' | 'registrar' | 'resolver' | 'nft' | null {
     const addr = address.toLowerCase();
 
     if (contractAddresses) {
       if (contractAddresses.registry && addr === contractAddresses.registry.toLowerCase()) return 'registry';
+      if (contractAddresses.registrar && addr === contractAddresses.registrar.toLowerCase()) return 'registrar';
       if (contractAddresses.resolver && addr === contractAddresses.resolver.toLowerCase()) return 'resolver';
       if (contractAddresses.domainNFT && addr === contractAddresses.domainNFT.toLowerCase()) return 'nft';
     }
@@ -243,7 +264,7 @@ export class EventParser {
   /**
    * Parse any PNS-related event from raw log
    */
-  async parseEvent(log: any, contractAddresses?: { registry?: string; resolver?: string; domainNFT?: string }): Promise<ParsedEvent | null> {
+  async parseEvent(log: any, contractAddresses?: { registry?: string; registrar?: string; resolver?: string; domainNFT?: string }): Promise<ParsedEvent | null> {
     try {
       // Add timestamp to all events
       const timestamp = await this.getBlockTimestamp(log.blockNumber);
@@ -259,6 +280,7 @@ export class EventParser {
       } else {
         // Try each interface
         decoded = this.decodeLog(log, 'registry');
+        if (!decoded) decoded = this.decodeLog(log, 'registrar');
         if (!decoded) decoded = this.decodeLog(log, 'resolver');
         if (!decoded) decoded = this.decodeLog(log, 'nft');
       }
@@ -316,12 +338,14 @@ export class EventParser {
    */
   getEventFilters(_contractAddresses: {
     registry: string;
+    registrar?: string;
+    controller?: string;
     resolver: string;
     domainNFT: string;
   }) {
     return {
       registry: [
-        // NameRegistered
+        // NameRegistered (legacy - from old v1)
         ethers.id('NameRegistered(bytes32,string,address,address,uint64)'),
         // NameRenewed
         ethers.id('NameRenewed(bytes32,uint64)'),
@@ -329,6 +353,18 @@ export class EventParser {
         ethers.id('OwnershipTransferred(bytes32,address,address)'),
         // ResolverUpdated
         ethers.id('ResolverUpdated(bytes32,address)'),
+      ],
+      registrar: [
+        // NameRegistered from Registrar (includes plaintext name + price!)
+        ethers.id('NameRegistered(bytes32,string,address,uint256,uint64)'),
+        // NameRenewed from Registrar (includes plaintext name + price!)
+        ethers.id('NameRenewed(bytes32,string,uint256,uint64)'),
+      ],
+      controller: [
+        // NameRegistered (from v2 Controller with USDC)
+        ethers.id('NameRegistered(bytes32,string,address,address,uint64)'),
+        // NameRenewed (from v2 Controller)
+        ethers.id('NameRenewed(bytes32,uint64)'),
       ],
       resolver: [
         // TextChanged
