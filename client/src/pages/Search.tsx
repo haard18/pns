@@ -54,39 +54,38 @@ const Search: React.FC = () => {
       const formatted = formatDomainName(q);
       const available = await checkAvailability(formatted);
 
+      const base = formatted.replace(/\.poly$/i, "");
+      const suggestions = [
+        `${base}01.poly`,
+        `${base}xyz.poly`,
+        `${base}-dev.poly`,
+        `${base}app.poly`,
+      ];
+
       if (available) {
         const priceData = await getPrice(formatted);
-        const results = {
+        setSearchResults({
           name: formatted,
           price: priceData?.price ?? "0",
           currency: priceData?.currency ?? "USDC",
           available: true,
-        };
-        setSearchResults(results);
-        // clear suggestions when we have a direct hit
-        setSuggestedDomains([]);
+        });
       } else {
-        // domain unavailable — set results with available=false and generate friendly suggestions
         setSearchResults({
           name: formatted,
           price: "0",
           currency: "USDC",
           available: false,
         });
-        // lightweight suggestion generator — tweak as needed
-        const base = formatted.replace(/\.poly$/i, "");
-        const suggestions = [
-          `${base}01.poly`,
-          `${base}xyz.poly`,
-          `${base}-dev.poly`,
-          `${base}app.poly`,
-        ];
-        setSuggestedDomains(suggestions);
       }
+
+      // Always show suggestions
+      setSuggestedDomains(suggestions);
     } catch (err) {
       console.error("Search error:", err);
     }
   }
+
 
   // Read query parameter from URL and trigger search on mount
   useEffect(() => {
@@ -249,16 +248,14 @@ const Search: React.FC = () => {
                           Price
                         </p>
                         <span
-                          className={`text-md md:text-lg font-bold ${
-                            searchResults.available
+                          className={`text-md md:text-lg font-bold ${searchResults.available
                               ? "text-green-400"
                               : "text-red-400"
-                          }`}
+                            }`}
                         >
                           {searchResults.available
-                            ? `${parseFloat(searchResults.price).toFixed(4)} ${
-                                searchResults.currency
-                              }`
+                            ? `${parseFloat(searchResults.price).toFixed(4)} ${searchResults.currency
+                            }`
                             : "Unavailable"}
                         </span>
                       </div>
