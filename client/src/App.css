@@ -39,11 +39,12 @@ body {
   font-weight: 400;
   font-style: normal;
 }
-.nft-bg{
-  background-image: url('src/assets/nft.png');
+
+.nft-bg {
   background-size: cover;
   background-position: center;
 }
+
 h1 {
   font-family: "Gloock", serif;
   font-weight: 400;

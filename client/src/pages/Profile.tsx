@@ -12,6 +12,7 @@ import discordIcon from "../assets/discord.svg";
 import telegramIcon from "../assets/tg.svg";
 import twitterIcon from "../assets/x.svg";
 import emailIcon from "../assets/email.svg";
+import nftBg from "../assets/nft.png";
 const rightTabs = ["Domain Settings", "Subdomains", "Advanced", "Activity"];
 
 const container = {
@@ -282,11 +283,10 @@ export default function DomainProfile() {
       content: (
         <div className="flex gap-3">
           <div
-            className={`w-10 h-10 rounded-md  ${
-              socials.website
+            className={`w-10 h-10 rounded-md  ${socials.website
                 ? "border-blue-500 bg-blue-500/10"
                 : "border-[rgba(255,255,255,0.06)]"
-            } flex items-center justify-center text-lg transition-all`}
+              } flex items-center justify-center text-lg transition-all`}
             title="Website"
           >
             <img
@@ -296,11 +296,10 @@ export default function DomainProfile() {
             />
           </div>
           <div
-            className={`w-10 h-10 rounded-md  ${
-              socials.twitter
+            className={`w-10 h-10 rounded-md  ${socials.twitter
                 ? "border-blue-500 bg-blue-500/10"
                 : "border-[rgba(255,255,255,0.06)]"
-            } flex items-center justify-center text-lg transition-all`}
+              } flex items-center justify-center text-lg transition-all`}
             title="Twitter"
           >
             <img
@@ -310,11 +309,10 @@ export default function DomainProfile() {
             />
           </div>
           <div
-            className={`w-10 h-10 rounded-md  ${
-              socials.discord
+            className={`w-10 h-10 rounded-md  ${socials.discord
                 ? "border-blue-500 bg-blue-500/10"
                 : "border-[rgba(255,255,255,0.06)]"
-            } flex items-center justify-center text-lg transition-all`}
+              } flex items-center justify-center text-lg transition-all`}
             title="Discord"
           >
             <img
@@ -324,11 +322,10 @@ export default function DomainProfile() {
             />
           </div>
           <div
-            className={`w-10 h-10 rounded-md  ${
-              socials.telegram
+            className={`w-10 h-10 rounded-md  ${socials.telegram
                 ? "border-blue-500 bg-blue-500/10"
                 : "border-[rgba(255,255,255,0.06)]"
-            } flex items-center justify-center text-lg transition-all`}
+              } flex items-center justify-center text-lg transition-all`}
             title="Telegram"
           >
             <img
@@ -338,21 +335,19 @@ export default function DomainProfile() {
             />
           </div>
           <div
-            className={`w-10 h-10 rounded-md  ${
-              socials.github
+            className={`w-10 h-10 rounded-md  ${socials.github
                 ? "border-blue-500 bg-blue-500/10"
                 : "border-[rgba(255,255,255,0.06)]"
-            } flex items-center justify-center text-lg transition-all`}
+              } flex items-center justify-center text-lg transition-all`}
             title="GitHub"
           >
             <img src={githubIcon} alt="GitHub" className="w-5 h-5 opacity-70" />
           </div>
           <div
-            className={`w-10 h-10 rounded-md  ${
-              socials.email
+            className={`w-10 h-10 rounded-md  ${socials.email
                 ? "border-blue-500 bg-blue-500/10"
                 : "border-[rgba(255,255,255,0.06)]"
-            } flex items-center justify-center text-lg transition-all`}
+              } flex items-center justify-center text-lg transition-all`}
             title="Email"
           >
             <img src={emailIcon} alt="GitHub" className="w-5 h-5 opacity-70" />
@@ -545,11 +540,10 @@ export default function DomainProfile() {
                     else if (s.title === "Ownership")
                       setShowTransferModal(true);
                   }}
-                  className={`text-xs md:text-sm ${
-                    s.isEditable
+                  className={`text-xs md:text-sm ${s.isEditable
                       ? "text-[#2349E2] hover:underline cursor-pointer"
                       : "text-[var(--text-soft)]"
-                  }`}
+                    }`}
                 >
                   {s.small}
                 </button>
@@ -569,11 +563,10 @@ export default function DomainProfile() {
                   key={t}
                   onClick={() => setActiveTab(t)}
                   whileTap={{ scale: 0.98 }}
-                  className={`pb-2 text-xs md:text-sm whitespace-nowrap ${
-                    activeTab === t
+                  className={`pb-2 text-xs md:text-sm whitespace-nowrap ${activeTab === t
                       ? "border-b-2 border-[var(--primary)]"
                       : "opacity-70"
-                  }`}
+                    }`}
                 >
                   {t}
                 </motion.button>
@@ -615,9 +608,9 @@ export default function DomainProfile() {
                     className="w-full md:w-64 h-64 mx-auto md:mx-0 rounded-md border border-[rgba(255,255,255,0.06)] overflow-hidden  flex items-center justify-center relative"
                     whileHover={{ scale: 1.02 }}
                   >
-                    <div className="absolute inset-0 nft-bg"></div>
+                    <div className="absolute inset-0 nft-bg" style={{ backgroundImage: `url(${nftBg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
                     <div className="absolute inset-0 flex items-center justify-center text-white text-xl font-medium z-10">
-                      {selectedDomain?.name+'.poly' || "domain.poly"}
+                      {selectedDomain?.name + '.poly' || "domain.poly"}
                     </div>
                   </motion.div>
 
