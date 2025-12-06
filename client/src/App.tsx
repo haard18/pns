@@ -6,12 +6,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./App.css";
 import Home from "./pages/Home";
 import { Routes, BrowserRouter as Router, Route } from "react-router-dom";
-import Search from "./pages/Search";
-import Profile from "./pages/Profile";
-import RegisterDomain from "./pages/RegisterDomain";
-import Domain from "./pages/Domain";
-import ManageDomain from "./pages/ManageDomain";
-import Marketplace from "./pages/Marketplace";
+// import Search from "./pages/Search";
+// import Profile from "./pages/Profile";
+// import RegisterDomain from "./pages/RegisterDomain";
+// import Domain from "./pages/Domain";
+// import ManageDomain from "./pages/ManageDomain";
+// import Marketplace from "./pages/Marketplace";
+import WaitlistPage from "./pages/WaitlistPage";
 
 // RainbowKit + Wagmi config for Polygon
 const config = getDefaultConfig({
@@ -31,13 +32,19 @@ function App() {
         <RainbowKitProvider>
           <Router>
             <Routes>
+              {/* Temporary Waitlist Gating */}
+              <Route path="*" element={<WaitlistPage />} />
               <Route path="/" element={<Home />} />
+
+              {/* Original Routes - Uncomment to restore */}
+              {/* 
               <Route path="/search" element={<Search />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/register" element={<RegisterDomain />} />
               <Route path="/domains" element={<Domain />} />
               <Route path="/manage/:domainName" element={<ManageDomain />} />
               <Route path="/marketplace" element={<Marketplace />} />
+              */}
             </Routes>
           </Router>
         </RainbowKitProvider>

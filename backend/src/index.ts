@@ -12,6 +12,9 @@ import { ApiResponse } from './types';
 import EventIndexer from './indexer/scanEvents';
 import database from './services/database.service';
 import redis from './services/redis.service';
+import mongo from './services/mongo.service';
+
+import waitlistRoutes from './routes/waitlist.routes';
 
 // Initialize Express app
 const app: Application = express();
@@ -53,6 +56,7 @@ app.use('/api/', limiter);
 
 // API Routes - New architecture
 app.use('/api', domainsRoutes);
+app.use('/api/waitlist', waitlistRoutes);
 // Health check endpoint
 app.get('/health', async (_req: Request, res: Response) => {
   const indexerStatus = indexer ? indexer.getStatus() : null;
@@ -138,6 +142,9 @@ async function initializeServices() {
     logger.info('Connecting to Redis...');
     await redis.connect();
 
+    logger.info('Connecting to MongoDB...');
+    await mongo.connect();
+
     logger.info('All services connected successfully');
   } catch (error) {
     logger.error('Failed to initialize services:', error);
@@ -207,6 +214,7 @@ process.on('SIGTERM', async () => {
   }
   await database.disconnect();
   await redis.disconnect();
+  await mongo.disconnect();
   process.exit(0);
 });
 
@@ -217,6 +225,7 @@ process.on('SIGINT', async () => {
   }
   await database.disconnect();
   await redis.disconnect();
+  await mongo.disconnect();
   process.exit(0);
 });
 
