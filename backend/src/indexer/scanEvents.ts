@@ -31,9 +31,9 @@ export class EventIndexer {
     this.eventParser = new EventParser(Config.polygon.rpcUrl);
     this.domainService = new DomainService();
 
-    // Use config batch size with conservative default for better RPC compatibility
-    // Smaller batches = more requests but less likely to hit rate limits
-    this.batchSize = Config.indexer.batchSize || 500;
+    // Use config batch size optimized for speed with Alchemy RPC
+    // Large batches with parallel processing for maximum throughput
+    this.batchSize = Config.indexer.batchSize || 2000;
 
     this.state = {
       lastProcessedBlock: 0,
@@ -150,7 +150,7 @@ export class EventIndexer {
 
   /**
    * Process a batch of blocks
-   * Optimized to make sequential requests to avoid RPC rate limits
+   * Fetch logs from all contracts in parallel for maximum speed
    */
   private async processBatch(range: ScanRange): Promise<void> {
     const contractAddresses = {
@@ -162,71 +162,54 @@ export class EventIndexer {
     };
 
     const eventFilters = this.eventParser.getEventFilters(contractAddresses);
-    const delayBetweenRequests = 200; // 200ms delay between contract queries
 
     try {
-      // Fetch logs SEQUENTIALLY to avoid overwhelming the RPC
-      // Priority order: Registrar (has plaintext names) > Registry > Controller > NFT > Resolver
+      // Fetch logs from ALL contracts in PARALLEL for maximum speed
+      const [registrarLogs, controllerLogs, registryLogs, nftLogs, resolverLogs] = await Promise.all([
+        this.eventParser.fetchLogs(
+          contractAddresses.registrar,
+          eventFilters.registrar,
+          range.fromBlock,
+          range.toBlock,
+          Config.indexer.logChunkSize
+        ),
+        this.eventParser.fetchLogs(
+          contractAddresses.controller,
+          eventFilters.controller,
+          range.fromBlock,
+          range.toBlock,
+          Config.indexer.logChunkSize
+        ),
+        this.eventParser.fetchLogs(
+          contractAddresses.registry,
+          eventFilters.registry,
+          range.fromBlock,
+          range.toBlock,
+          Config.indexer.logChunkSize
+        ),
+        this.eventParser.fetchLogs(
+          contractAddresses.domainNFT,
+          eventFilters.domainNFT,
+          range.fromBlock,
+          range.toBlock,
+          Config.indexer.logChunkSize
+        ),
+        this.eventParser.fetchLogs(
+          contractAddresses.resolver,
+          eventFilters.resolver,
+          range.fromBlock,
+          range.toBlock,
+          Config.indexer.logChunkSize
+        ),
+      ]);
       
-      const allLogs: any[] = [];
-      
-      // 1. Registrar - MOST IMPORTANT (emits NameRegistered with plaintext names)
-      const registrarLogs = await this.eventParser.fetchLogs(
-        contractAddresses.registrar,
-        eventFilters.registrar,
-        range.fromBlock,
-        range.toBlock,
-        Config.indexer.logChunkSize
-      );
-      allLogs.push(...registrarLogs);
-      
-      if (registrarLogs.length > 0) {
-        logger.debug('Fetched registrar logs', { count: registrarLogs.length });
-      }
-      await this.delay(delayBetweenRequests);
-
-      // 2. Controller - Also emits registration events
-      const controllerLogs = await this.eventParser.fetchLogs(
-        contractAddresses.controller,
-        eventFilters.controller,
-        range.fromBlock,
-        range.toBlock,
-        Config.indexer.logChunkSize
-      );
-      allLogs.push(...controllerLogs);
-      await this.delay(delayBetweenRequests);
-
-      // 3. Registry - Ownership and resolver updates
-      const registryLogs = await this.eventParser.fetchLogs(
-        contractAddresses.registry,
-        eventFilters.registry,
-        range.fromBlock,
-        range.toBlock,
-        Config.indexer.logChunkSize
-      );
-      allLogs.push(...registryLogs);
-      await this.delay(delayBetweenRequests);
-
-      // 4. NFT - Transfer events
-      const nftLogs = await this.eventParser.fetchLogs(
-        contractAddresses.domainNFT,
-        eventFilters.domainNFT,
-        range.fromBlock,
-        range.toBlock,
-        Config.indexer.logChunkSize
-      );
-      allLogs.push(...nftLogs);
-      await this.delay(delayBetweenRequests);
-
-      // 5. Resolver - Text and address records (least priority)
-      const resolverLogs = await this.eventParser.fetchLogs(
-        contractAddresses.resolver,
-        eventFilters.resolver,
-        range.fromBlock,
-        range.toBlock,
-        Config.indexer.logChunkSize
-      );
-      allLogs.push(...resolverLogs);
+      const allLogs: any[] = [
+        ...registrarLogs,
+        ...controllerLogs,
+        ...registryLogs,
+        ...nftLogs,
+        ...resolverLogs,
+      ];
 
       // Sort logs by block number and transaction index
       allLogs.sort((a, b) => {
@@ -242,10 +225,22 @@ export class EventIndexer {
         totalLogs: allLogs.length,
       });
 
-      // Process each log
-      for (const log of allLogs) {
-        await this.processLog(log, contractAddresses);
-        this.state.totalEventsProcessed++;
+      // Process logs in batches for better performance
+      const PROCESS_BATCH_SIZE = 50;
+      for (let i = 0; i < allLogs.length; i += PROCESS_BATCH_SIZE) {
+        const logBatch = allLogs.slice(i, i + PROCESS_BATCH_SIZE);
+        
+        // Process batch in parallel
+        await Promise.all(
+          logBatch.map(log => this.processLog(log, contractAddresses))
+        );
+        
+        this.state.totalEventsProcessed += logBatch.length;
+        
+        // Brief pause between batches to avoid overwhelming the database
+        if (i + PROCESS_BATCH_SIZE < allLogs.length) {
+          await this.delay(10); // 10ms pause
+        }
       }
     } catch (error) {
       logger.error('Error processing batch:', { range, error });
