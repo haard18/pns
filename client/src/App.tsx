@@ -12,6 +12,7 @@ import RegisterDomain from "./pages/RegisterDomain";
 import Domain from "./pages/Domain";
 import ManageDomain from "./pages/ManageDomain";
 import Marketplace from "./pages/Marketplace";
+import Explore from "./pages/Explore";
 // import WaitlistPage from "./pages/WaitlistPage";
 import { DAIMO_API_URL, DAIMO_CONFIG } from './config/daimoConfig';
 
@@ -45,6 +46,7 @@ function App() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/register" element={<RegisterDomain />} />
               <Route path="/domains" element={<Domain />} />
+              <Route path="/explore" element={<Explore />} />
               <Route path="/manage/:domainName" element={<ManageDomain />} />
               <Route path="/marketplace" element={<Marketplace />} />
              
