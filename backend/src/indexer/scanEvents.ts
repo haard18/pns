@@ -34,6 +34,12 @@ export class EventIndexer {
     // Use config batch size optimized for speed with Alchemy RPC
     // Large batches with parallel processing for maximum throughput
     this.batchSize = Config.indexer.batchSize || 2000;
+    
+    // Log the actual batch size being used
+    logger.info('Event indexer initialized with batch size', {
+      batchSize: this.batchSize,
+      configBatchSize: Config.indexer.batchSize,
+    });
 
     this.state = {
       lastProcessedBlock: 0,
@@ -125,6 +131,8 @@ export class EventIndexer {
         fromBlock: startBlock,
         toBlock: latestBlock,
         blocksToProcess: latestBlock - startBlock + 1,
+        batchSize: this.batchSize,
+        expectedBatches: Math.ceil((latestBlock - startBlock + 1) / this.batchSize),
       });
 
       // Process in batches
