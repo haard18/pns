@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import { getAllDomains, formatAddress, formatDomainName } from "../services/pnsApi";
-
+import bg from '../assets/nft.png';
 interface DomainItem {
   name: string;
   name_hash?: string;
@@ -199,29 +199,14 @@ const Explore = () => {
                       <div 
                         className="absolute inset-0" 
                         style={{
-                          background: isExpired(domain.expiration)
-                            ? 'linear-gradient(135deg, #333 0%, #555 50%, #333 100%)'
-                            : 'linear-gradient(135deg, #0033CC 0%, #0052FF 50%, #0033CC 100%)',
+                          backgroundImage: `url(${bg})`,
+                          backgroundPosition: 'center center',
+                          backgroundSize: 'cover',
+                          backgroundRepeat: 'no-repeat',
                         }}
-                      >
-                        {/* Circuit Grid Pattern */}
-                        <div className="absolute inset-0" style={{
-                          backgroundImage: `
-                            linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-                            linear-gradient(180deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)
-                          `,
-                          backgroundSize: '30px 30px',
-                        }}></div>
+                      >                        
                         
-                        {/* Circuit Lines */}
-                        <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.3 }}>
-                          <line x1="15%" y1="0" x2="15%" y2="100%" stroke="rgba(255, 255, 255, 0.3)" strokeWidth="2" />
-                          <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
-                          <line x1="85%" y1="0" x2="85%" y2="100%" stroke="rgba(255, 255, 255, 0.3)" strokeWidth="2" />
-                          <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
-                          <circle cx="15%" cy="50%" r="3" fill="rgba(255, 255, 255, 0.4)" />
-                          <circle cx="85%" cy="50%" r="3" fill="rgba(255, 255, 255, 0.4)" />
-                        </svg>
+                        
                       </div>
                       
                       {/* Content */}

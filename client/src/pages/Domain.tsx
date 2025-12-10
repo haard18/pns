@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import { useAccount } from 'wagmi';
 import { useDomain } from "../hooks/useDomain";
-
+import bg from '../assets/nft.png';
 interface DomainItem {
   name: string;
 }
@@ -194,50 +194,20 @@ const Domain = () => {
                   {viewMode === "grid" ? (
                     <>
                       {/* Vibrant Blue Circuit Board Background */}
-                      <div 
+                           <div 
                         className="absolute inset-0" 
                         style={{
-                          background: 'linear-gradient(135deg, #0033CC 0%, #0052FF 50%, #0033CC 100%)',
+                          backgroundImage: `url(${bg})`,
+                          backgroundPosition: 'center center',
+                          backgroundSize: 'cover',
+                          backgroundRepeat: 'no-repeat',
                         }}
-                      >
+                      >    
                         {/* Circuit Grid Pattern */}
-                        <div className="absolute inset-0" style={{
-                          backgroundImage: `
-                            linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-                            linear-gradient(180deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)
-                          `,
-                          backgroundSize: '30px 30px',
-                        }}></div>
+                        
                         
                         {/* Circuit Lines */}
-                        <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.3 }}>
-                          {/* Vertical Lines */}
-                          <line x1="15%" y1="0" x2="15%" y2="100%" stroke="rgba(255, 255, 255, 0.3)" strokeWidth="2" />
-                          <line x1="25%" y1="0" x2="25%" y2="100%" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
-                          <line x1="35%" y1="0" x2="35%" y2="100%" stroke="rgba(255, 255, 255, 0.3)" strokeWidth="2" />
-                          <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
-                          <line x1="65%" y1="0" x2="65%" y2="100%" stroke="rgba(255, 255, 255, 0.3)" strokeWidth="2" />
-                          <line x1="75%" y1="0" x2="75%" y2="100%" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
-                          <line x1="85%" y1="0" x2="85%" y2="100%" stroke="rgba(255, 255, 255, 0.3)" strokeWidth="2" />
-                          
-                          {/* Horizontal Lines */}
-                          <line x1="0" y1="20%" x2="100%" y2="20%" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
-                          <line x1="0" y1="35%" x2="100%" y2="35%" stroke="rgba(255, 255, 255, 0.3)" strokeWidth="2" />
-                          <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
-                          <line x1="0" y1="65%" x2="100%" y2="65%" stroke="rgba(255, 255, 255, 0.3)" strokeWidth="2" />
-                          <line x1="0" y1="80%" x2="100%" y2="80%" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
-                          
-                          {/* Circuit Nodes */}
-                          <circle cx="15%" cy="20%" r="3" fill="rgba(255, 255, 255, 0.4)" />
-                          <circle cx="35%" cy="35%" r="3" fill="rgba(255, 255, 255, 0.4)" />
-                          <circle cx="65%" cy="50%" r="3" fill="rgba(255, 255, 255, 0.4)" />
-                          <circle cx="85%" cy="65%" r="3" fill="rgba(255, 255, 255, 0.4)" />
-                          <circle cx="25%" cy="80%" r="3" fill="rgba(255, 255, 255, 0.4)" />
-                          
-                          {/* Curved Connections */}
-                          <path d="M 15 20 Q 50 20, 85 65" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1.5" fill="none" />
-                          <path d="M 35 35 Q 65 40, 65 50" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1.5" fill="none" />
-                        </svg>
+                       
                       </div>
                       
                       {/* Content */}
