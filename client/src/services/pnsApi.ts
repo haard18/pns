@@ -183,6 +183,42 @@ export async function getDomainDetails(name: string): Promise<DomainRecord | nul
 }
 
 /**
+ * Get all domains (paginated) - for explore page
+ */
+export async function getAllDomains(page: number = 1, limit: number = 50): Promise<{
+  domains: any[];
+  total: number;
+  page: number;
+  limit: number;
+}> {
+  try {
+    const url = `${API_BASE_URL}/domains/all?page=${page}&limit=${limit}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.error('API response not OK:', response.status, response.statusText);
+      return { domains: [], total: 0, page, limit };
+    }
+    
+    const data: ApiResponse<{
+      domains: any[];
+      total: number;
+      page: number;
+      limit: number;
+    }> = await response.json();
+    
+    if (data.success && data.data) {
+      return data.data;
+    }
+    
+    return { domains: [], total: 0, page, limit };
+  } catch (error) {
+    console.error('Error fetching all domains:', error);
+    return { domains: [], total: 0, page, limit };
+  }
+}
+
+/**
  * Health check
  */
 export async function checkApiHealth(): Promise<boolean> {
