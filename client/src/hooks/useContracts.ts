@@ -7,6 +7,7 @@
 import { useAccount, useConfig } from 'wagmi';
 import { readContract, waitForTransactionReceipt, writeContract as writeContractClient } from 'wagmi/actions';
 import { parseEther } from 'viem';
+import { polygon } from 'wagmi/chains';
 import { getContractAddresses, PNSControllerABI, PNSPriceOracleABI, PNSResolverABI, PNSRegistryABI } from '../config/contractConfig';
 import { namehash, validateDomainName } from '../lib/namehash';
 
@@ -70,6 +71,13 @@ export function useContracts() {
     const contracts = getContractAddresses(currentChainId);
 
     /**
+     * Check if we're on a supported chain for contract operations
+     */
+    const isSupportedChain = () => {
+        return currentChainId === 137 || currentChainId === 80002 || currentChainId === 31337;
+    };
+
+    /**
      * Helper function to create namehash
      */
     const getNameHash = (name: string): `0x${string}` => {
@@ -98,6 +106,7 @@ export function useContracts() {
                 abi: PNSRegistryABI,
                 functionName: 'records',
                 args: [nameHash],
+                chainId: currentChainId,
             });
 
             const [owner, resolver, expiration] = record as [string, string, bigint];
@@ -128,6 +137,10 @@ export function useContracts() {
      * Check domain availability
      */
     const checkAvailability = async (name: string): Promise<boolean> => {
+        if (!isSupportedChain()) {
+            console.warn('Not on supported chain for domain operations');
+            return false;
+        }
         try {
             const cleanName = name.replace(/\.poly$/i, '');
             const result = await readContract(config, {
@@ -135,6 +148,7 @@ export function useContracts() {
                 abi: PNSControllerABI,
                 functionName: 'isDomainAvailable',
                 args: [cleanName],
+                chainId: currentChainId,
             });
             return result as boolean ?? false;
         } catch (error) {
@@ -157,6 +171,7 @@ export function useContracts() {
                 abi: PNSPriceOracleABI,
                 functionName: 'getPrice',
                 args: [nameHash, cleanName, BigInt(durationYears)],
+                chainId: currentChainId,
             });
 
             return price as bigint;
@@ -195,25 +210,27 @@ export function useContracts() {
 
             console.log('[registerDomain] Price in USDC:', price.toString(), '(', Number(price) / 1e6, 'USDC)');
 
-            // Check USDC balance
-            const usdcBalance = await readContract(config, {
+            // Check USDC balance (only on Polygon mainnet)
+            const usdcBalance = currentChainId === polygon.id ? await readContract(config, {
                 address: USDC_ADDRESS,
                 abi: ERC20_ABI,
                 functionName: 'balanceOf',
                 args: [address],
-            }) as bigint;
+                chainId: polygon.id,
+            }) as bigint : BigInt(0);
 
             if (usdcBalance < price) {
                 return { success: false, error: `Insufficient USDC balance. Need ${Number(price) / 1e6} USDC, have ${Number(usdcBalance) / 1e6} USDC` };
             }
 
-            // Check current allowance
-            const currentAllowance = await readContract(config, {
+            // Check current allowance (only on Polygon mainnet)
+            const currentAllowance = currentChainId === polygon.id ? await readContract(config, {
                 address: USDC_ADDRESS,
                 abi: ERC20_ABI,
                 functionName: 'allowance',
                 args: [address, contracts.controller],
-            }) as bigint;
+                chainId: polygon.id,
+            }) as bigint : BigInt(0);
 
             // Step 1: Approve USDC if needed
             if (currentAllowance < price) {
@@ -284,25 +301,27 @@ export function useContracts() {
 
             console.log('[renewDomain] Price in USDC:', price.toString(), '(', Number(price) / 1e6, 'USDC)');
 
-            // Check USDC balance
-            const usdcBalance = await readContract(config, {
+            // Check USDC balance (only on Polygon mainnet)
+            const usdcBalance = currentChainId === polygon.id ? await readContract(config, {
                 address: USDC_ADDRESS,
                 abi: ERC20_ABI,
                 functionName: 'balanceOf',
                 args: [address],
-            }) as bigint;
+                chainId: polygon.id,
+            }) as bigint : BigInt(0);
 
             if (usdcBalance < price) {
                 return { success: false, error: `Insufficient USDC balance. Need ${Number(price) / 1e6} USDC, have ${Number(usdcBalance) / 1e6} USDC` };
             }
 
-            // Check current allowance
-            const currentAllowance = await readContract(config, {
+            // Check current allowance (only on Polygon mainnet)
+            const currentAllowance = currentChainId === polygon.id ? await readContract(config, {
                 address: USDC_ADDRESS,
                 abi: ERC20_ABI,
                 functionName: 'allowance',
                 args: [address, contracts.controller],
-            }) as bigint;
+                chainId: polygon.id,
+            }) as bigint : BigInt(0);
 
             // Step 1: Approve USDC if needed
             if (currentAllowance < price) {
@@ -473,6 +492,7 @@ export function useContracts() {
                 abi: PNSResolverABI,
                 functionName: 'getText',
                 args: [nameHash, key],
+                chainId: currentChainId,
             });
 
             return result as string;
@@ -499,6 +519,7 @@ export function useContracts() {
                 abi: PNSResolverABI,
                 functionName: 'getAddr',
                 args: [nameHash, BigInt(coinType)],
+                chainId: currentChainId,
             });
 
             return result as string;

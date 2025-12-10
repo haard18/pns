@@ -3,8 +3,9 @@ import { motion } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import logo from "../assets/Logo.png";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount, useConfig } from "wagmi";
+import { useAccount, useConfig, useSwitchChain } from "wagmi";
 import { readContract } from "wagmi/actions";
+import { polygon } from "wagmi/chains";
 
 const USDC_ADDRESS =
   "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359" as `0x${string}`;
@@ -22,13 +23,14 @@ const ERC20_ABI = [
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [usdcBalance, setUsdcBalance] = useState<string | null>(null);
-  const { address } = useAccount();
+  const { address, chainId } = useAccount();
   const config = useConfig();
+  const { switchChain } = useSwitchChain();
   const location = useLocation();
 
   // Fetch USDC balance when wallet address changes
   useEffect(() => {
-    if (address) {
+    if (address && chainId === polygon.id) {
       const fetchBalance = async () => {
         try {
           const balance = (await readContract(config, {
@@ -36,6 +38,7 @@ export default function Navbar() {
             abi: ERC20_ABI,
             functionName: "balanceOf",
             args: [address],
+            chainId: polygon.id,
           })) as bigint;
 
           // Convert from 6 decimals to readable format
@@ -54,7 +57,7 @@ export default function Navbar() {
     } else {
       setUsdcBalance(null);
     }
-  }, [address, config]);
+  }, [address, chainId, config]);
 
   const mobileMenuVariants = {
     hidden: { opacity: 0, x: -20 },
@@ -202,6 +205,19 @@ export default function Navbar() {
                     );
                   }
 
+                  // Show switch to Polygon button if not on Polygon
+                  if (chain.id !== polygon.id) {
+                    return (
+                      <button
+                        onClick={() => switchChain({ chainId: polygon.id })}
+                        type="button"
+                        className="px-4 py-2 bg-yellow-500/20 border border-yellow-500 rounded text-yellow-200 text-sm hover:bg-yellow-500/30 transition"
+                      >
+                        Switch to Polygon
+                      </button>
+                    );
+                  }
+
                   return (
                     <div style={{ display: "flex", gap: 12 }}>
                       <button
@@ -336,6 +352,19 @@ export default function Navbar() {
                             className="w-full px-4 py-3 bg-red-500/20 border border-red-500 rounded text-red-200 text-sm"
                           >
                             Wrong network
+                          </button>
+                        );
+                      }
+
+                      // Show switch to Polygon button if not on Polygon (mobile)
+                      if (chain.id !== polygon.id) {
+                        return (
+                          <button
+                            onClick={() => switchChain({ chainId: polygon.id })}
+                            type="button"
+                            className="w-full px-4 py-3 bg-yellow-500/20 border border-yellow-500 rounded text-yellow-200 text-sm hover:bg-yellow-500/30 transition"
+                          >
+                            Switch to Polygon
                           </button>
                         );
                       }
