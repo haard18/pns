@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../components/Navbar";
 import { useDomain } from "../hooks/useDomain";
 import { useMarketplace } from "../hooks/useMarketplace";
-import { useAccount, useChainId } from 'wagmi';
-import { formatExpiration } from "../lib/namehash";
+import { useAccount, useChainId, useReadContract } from 'wagmi';
+import { formatExpiration, namehash } from "../lib/namehash";
+import { contractAddresses, PNSDomainNFTABI } from "../config/contractConfig";
 
 const ManageDomain = () => {
   const { domainName } = useParams<{ domainName: string }>();
@@ -20,7 +21,6 @@ const ManageDomain = () => {
     approveNFT,
     isMarketplaceApproved,
     formatUSDC,
-    getTokenIdFromName,
   } = useMarketplace();
   
   const [activeTab, setActiveTab] = useState<"records" | "subdomains" | "permissions">("records");
@@ -237,11 +237,25 @@ const ManageDomain = () => {
     }
   };
 
+  // Get NFT contract address
+  const nftAddress = contractAddresses[chainId]?.nft as `0x${string}`;
+  
+  // Calculate nameHash from domain name using proper namehash function
+  // The namehash function automatically adds ".poly" suffix and uses correct hashing
+  const nameHash = domainName 
+    ? namehash(domainName.replace(/\.poly$/i, ''))
+    : '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
+
   // Get tokenId from domain name
-  const { data: tokenIdData, refetch: refetchTokenId } = getTokenIdFromName(
-    domainName || '',
-    chainId
-  );
+  const { data: tokenIdData, refetch: refetchTokenId } = useReadContract({
+    address: nftAddress,
+    abi: PNSDomainNFTABI,
+    functionName: 'getTokenId',
+    args: [nameHash],
+    query: {
+      enabled: !!domainName && !!nftAddress,
+    }
+  });
 
   // Check marketplace approval when listing modal opens
   const { data: approvalStatus, refetch: refetchApproval } = isMarketplaceApproved(
@@ -287,13 +301,18 @@ const ManageDomain = () => {
 
   // Handle listing domain for sale
   const handleListForSale = async () => {
+    console.log('Listing domain:', domainName);
+    console.log('TokenId data:', tokenIdData);
+    console.log('NameHash:', nameHash);
+    
     if (!listingPrice || parseFloat(listingPrice) <= 0) {
       setListingError("Please enter a valid price");
       return;
     }
 
-    if (!tokenIdData) {
-      setListingError("Domain token ID not found. Please try again.");
+    if (!tokenIdData || tokenIdData === 0n) {
+      console.error('TokenId not found or is zero:', tokenIdData);
+      setListingError(`Unable to fetch token ID for ${domainName}. The domain may not be registered as an NFT yet.`);
       return;
     }
 
@@ -302,6 +321,7 @@ const ManageDomain = () => {
     setListingSuccess(null);
 
     try {
+      console.log('Listing domain with tokenId:', tokenIdData.toString());
       await listDomain(tokenIdData as bigint, listingPrice, chainId);
       setListingSuccess("Listing submitted! Please confirm in your wallet.");
       setTimeout(() => {
@@ -679,9 +699,21 @@ const ManageDomain = () => {
               <h3 className="text-xl md:text-2xl text-white font-bold mb-4">
                 List Domain for Sale
               </h3>
-              <p className="text-[var(--text-soft)] text-sm mb-6">
+              <p className="text-[var(--text-soft)] text-sm mb-4">
                 List <span className="text-white font-medium">{domainName}</span> on the marketplace. Set your price in USDC.
               </p>
+
+              {/* Debug Info - Show TokenId Status */}
+              <div className="mb-6 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-blue-200 text-xs">
+                  <strong>Token ID:</strong> {tokenIdData ? tokenIdData.toString() : 'Loading...'}
+                </p>
+                {tokenIdData === 0n && (
+                  <p className="text-red-400 text-xs mt-1">
+                    ⚠️ Token ID is 0 - Domain may not be minted as NFT yet
+                  </p>
+                )}
+              </div>
 
               {/* Approval Section */}
               {!isApproved && (
