@@ -250,6 +250,20 @@ export const useMarketplace = () => {
     return parseUnits(amount, 6);
   };
 
+  // Get token ID from domain name
+  const getTokenIdFromName = (domainName: string, chainId: number = 137) => {
+    const nftAddress = getNFTAddress(chainId);
+    const cleanName = domainName.replace(/\.poly$/i, '');
+    const nameHash = keccak256(toBytes(cleanName.toLowerCase()));
+
+    return useReadContract({
+      address: nftAddress,
+      abi: PNSDomainNFTABI,
+      functionName: 'getTokenId',
+      args: [nameHash],
+    });
+  };
+
   return {
     // Transaction state
     hash,
@@ -285,5 +299,6 @@ export const useMarketplace = () => {
     // Utilities
     formatUSDC,
     parseUSDC,
+    getTokenIdFromName,
   };
 };

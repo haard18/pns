@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../components/Navbar";
 import { useDomain } from "../hooks/useDomain";
-import { useAccount } from 'wagmi';
+import { useMarketplace } from "../hooks/useMarketplace";
+import { useAccount, useChainId } from 'wagmi';
 import { formatExpiration } from "../lib/namehash";
 
 const ManageDomain = () => {
@@ -11,6 +12,16 @@ const ManageDomain = () => {
   const navigate = useNavigate();
   const { renew, getDomainDetails, setTextRecord, getTextRecord, transferDomain, domain } = useDomain();
   const { address } = useAccount();
+  const chainId = useChainId();
+  
+  // Marketplace hooks
+  const {
+    listDomain,
+    approveNFT,
+    isMarketplaceApproved,
+    formatUSDC,
+    getTokenIdFromName,
+  } = useMarketplace();
   
   const [activeTab, setActiveTab] = useState<"records" | "subdomains" | "permissions">("records");
   const [domainDetails, setDomainDetails] = useState<any | null>(null);
@@ -24,6 +35,14 @@ const ManageDomain = () => {
   const [transferAddress, setTransferAddress] = useState("");
   const [transferring, setTransferring] = useState(false);
   const [transferError, setTransferError] = useState<string | null>(null);
+
+  // Marketplace listing state
+  const [showListingModal, setShowListingModal] = useState(false);
+  const [listingPrice, setListingPrice] = useState("");
+  const [isApproved, setIsApproved] = useState(false);
+  const [listingInProgress, setListingInProgress] = useState(false);
+  const [listingError, setListingError] = useState<string | null>(null);
+  const [listingSuccess, setListingSuccess] = useState<string | null>(null);
 
   // Records state - loaded from contract
   const [records, setRecords] = useState<{ key: string; value: string; type: string }[]>([]);
@@ -218,6 +237,86 @@ const ManageDomain = () => {
     }
   };
 
+  // Get tokenId from domain name
+  const { data: tokenIdData, refetch: refetchTokenId } = getTokenIdFromName(
+    domainName || '',
+    chainId
+  );
+
+  // Check marketplace approval when listing modal opens
+  const { data: approvalStatus, refetch: refetchApproval } = isMarketplaceApproved(
+    address as `0x${string}`, 
+    chainId
+  );
+  
+  useEffect(() => {
+    if (showListingModal && approvalStatus !== undefined) {
+      setIsApproved(approvalStatus as boolean);
+    }
+  }, [approvalStatus, showListingModal]);
+
+  // Refetch approval status and tokenId when modal opens
+  useEffect(() => {
+    if (showListingModal && address && domainName) {
+      refetchApproval?.();
+      refetchTokenId?.();
+    }
+  }, [showListingModal, address, domainName, refetchApproval, refetchTokenId]);
+
+  // Handle marketplace approval
+  const handleApproveMarketplace = async () => {
+    setListingInProgress(true);
+    setListingError(null);
+    setListingSuccess(null);
+
+    try {
+      await approveNFT(chainId);
+      setListingSuccess("Approval submitted! Please confirm in your wallet.");
+      // Wait a bit then refetch approval status
+      setTimeout(() => {
+        setListingSuccess(null);
+        refetchApproval?.();
+      }, 3000);
+    } catch (err: any) {
+      console.error("Error approving marketplace:", err);
+      setListingError(err.message || "Failed to approve marketplace");
+    } finally {
+      setListingInProgress(false);
+    }
+  };
+
+  // Handle listing domain for sale
+  const handleListForSale = async () => {
+    if (!listingPrice || parseFloat(listingPrice) <= 0) {
+      setListingError("Please enter a valid price");
+      return;
+    }
+
+    if (!tokenIdData) {
+      setListingError("Domain token ID not found. Please try again.");
+      return;
+    }
+
+    setListingInProgress(true);
+    setListingError(null);
+    setListingSuccess(null);
+
+    try {
+      await listDomain(tokenIdData as bigint, listingPrice, chainId);
+      setListingSuccess("Listing submitted! Please confirm in your wallet.");
+      setTimeout(() => {
+        setShowListingModal(false);
+        setListingSuccess(null);
+        setListingPrice("");
+      }, 2000);
+    } catch (err: any) {
+      console.error("Error listing domain:", err);
+      setListingError(err.message || "Failed to list domain");
+    } finally {
+      setListingInProgress(false);
+    }
+  };
+
   return (
     <div className="min-h-screen overflow-hidden" style={{ background: "var(--primary-gradient)" }}>
       <Navbar />
@@ -274,8 +373,12 @@ const ManageDomain = () => {
             <div className="text-white text-lg font-semibold mb-2 group-hover:text-[#2349E2] transition">Transfer Domain</div>
             <div className="text-[var(--text-soft)] text-sm">Transfer to another wallet</div>
           </button>
-          <button className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-5 md:p-6 hover:border-red-500 transition text-left group">
-            <div className="text-white text-lg font-semibold mb-2 group-hover:text-red-500 transition">List for Sale</div>
+          <button 
+            onClick={() => setShowListingModal(true)}
+            disabled={!domainDetails?.owner || domainDetails?.owner.toLowerCase() !== address?.toLowerCase()}
+            className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg p-5 md:p-6 hover:border-[#2349E2] transition text-left group disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="text-white text-lg font-semibold mb-2 group-hover:text-[#2349E2] transition">List for Sale</div>
             <div className="text-[var(--text-soft)] text-sm">Put your domain on the market</div>
           </button>
         </motion.div>
@@ -555,6 +658,126 @@ const ManageDomain = () => {
           </div>
         </div>
       )}
+
+      {/* Listing Modal */}
+      <AnimatePresence>
+        {showListingModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4"
+            onClick={() => setShowListingModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#1a1a2e] border border-[rgba(255,255,255,0.1)] rounded-xl p-6 max-w-md w-full"
+            >
+              <h3 className="text-xl md:text-2xl text-white font-bold mb-4">
+                List Domain for Sale
+              </h3>
+              <p className="text-[var(--text-soft)] text-sm mb-6">
+                List <span className="text-white font-medium">{domainName}</span> on the marketplace. Set your price in USDC.
+              </p>
+
+              {/* Approval Section */}
+              {!isApproved && (
+                <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                  <div className="flex items-start gap-3 mb-3">
+                    <svg className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p className="text-yellow-200 text-sm font-medium">Marketplace Approval Required</p>
+                      <p className="text-yellow-300/70 text-xs mt-1">
+                        You need to approve the marketplace to transfer your NFT when it's sold.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleApproveMarketplace}
+                    disabled={listingInProgress}
+                    className="w-full bg-yellow-500 text-black py-2.5 rounded-lg font-medium hover:bg-yellow-400 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    {listingInProgress ? "Approving..." : "Approve Marketplace"}
+                  </button>
+                </div>
+              )}
+
+              {/* Price Input */}
+              <div className="mb-6">
+                <label className="block text-white text-sm font-medium mb-2">
+                  Price (USDC)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  placeholder="Enter price in USDC (min: 1)"
+                  value={listingPrice}
+                  onChange={(e) => setListingPrice(e.target.value)}
+                  className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg px-4 py-3 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2]"
+                />
+                {listingPrice && parseFloat(listingPrice) >= 1 && (
+                  <p className="text-[var(--text-soft)] text-xs mt-2">
+                    You'll receive approximately {(parseFloat(listingPrice) * 0.975).toFixed(2)} USDC after 2.5% marketplace fee
+                  </p>
+                )}
+              </div>
+
+              {/* Status Messages */}
+              {listingError && (
+                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                  {listingError}
+                </div>
+              )}
+              {listingSuccess && (
+                <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 text-sm">
+                  {listingSuccess}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowListingModal(false);
+                    setListingPrice("");
+                    setListingError(null);
+                    setListingSuccess(null);
+                  }}
+                  className="flex-1 bg-[rgba(255,255,255,0.05)] text-white py-3 rounded-lg font-medium hover:bg-[rgba(255,255,255,0.1)] transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleListForSale}
+                  disabled={!isApproved || !listingPrice || parseFloat(listingPrice) < 1 || listingInProgress}
+                  className="flex-1 bg-[#2349E2] text-white py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    !isApproved 
+                      ? "Please approve marketplace first" 
+                      : !listingPrice || parseFloat(listingPrice) < 1
+                      ? "Please enter a valid price (minimum 1 USDC)"
+                      : ""
+                  }
+                >
+                  {listingInProgress ? "Listing..." : "List for Sale"}
+                </button>
+              </div>
+              
+              {!isApproved && (
+                <p className="text-xs text-yellow-400 mt-3 text-center">
+                  ⚠️ Please approve the marketplace before listing
+                </p>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
