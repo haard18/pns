@@ -181,6 +181,27 @@ echo -e "${GREEN}✓ ADMIN_ROLE granted${NC}"
 echo ""
 
 # ============================================================================
+# STEP 5: Link NFT Contract
+# ============================================================================
+echo -e "${BLUE}Step 5: Linking NFT Contract${NC}"
+echo "============================="
+
+echo "Setting NFT contract on Registrar..."
+cast send $REGISTRAR 'setNFTContract(address)' $NFT \
+  --rpc-url $RPC_URL \
+  --private-key $ADMIN_KEY \
+  > /dev/null 2>&1
+echo -e "${GREEN}✓ NFT contract linked to Registrar${NC}"
+
+echo "Transferring NFT ownership to Registrar..."
+cast send $NFT 'transferOwnership(address)' $REGISTRAR \
+  --rpc-url $RPC_URL \
+  --private-key $ADMIN_KEY \
+  > /dev/null 2>&1
+echo -e "${GREEN}✓ NFT ownership transferred${NC}"
+echo ""
+
+# ============================================================================
 # SUMMARY
 # ============================================================================
 echo -e "${GREEN}✅ Deployment Complete!${NC}"

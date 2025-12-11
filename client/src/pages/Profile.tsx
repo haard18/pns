@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { useNavigate } from "react-router-dom";
 import { useDomain } from "../hooks/useDomain";
+import { useMarketplace } from "../hooks/useMarketplace";
 import Navbar from "../components/Navbar";
 
 // Import social icons
@@ -31,6 +32,7 @@ const scaleIn = {
 
 export default function DomainProfile() {
   const { address } = useAccount();
+  const chainId = useChainId();
   const navigate = useNavigate();
   const {
     getUserDomains,
@@ -40,17 +42,32 @@ export default function DomainProfile() {
     getAddressRecord,
     transferDomain,
   } = useDomain();
+  
+  const {
+    listDomain,
+    approveNFT,
+    isMarketplaceApproved,
+    formatUSDC,
+    isPending,
+    isConfirming,
+    isSuccess,
+  } = useMarketplace();
 
   const [activeTab, setActiveTab] = useState("Domain Settings");
   const [showSocialsModal, setShowSocialsModal] = useState(false);
   const [showAddressesModal, setShowAddressesModal] = useState(false);
   const [showOtherRecordsModal, setShowOtherRecordsModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showListingModal, setShowListingModal] = useState(false);
   const [userDomains, setUserDomains] = useState<any[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  
+  // Marketplace listing state
+  const [listingPrice, setListingPrice] = useState("");
+  const [isApproved, setIsApproved] = useState(false);
 
   useEffect(() => {
     const loadDomains = async () => {
@@ -274,6 +291,80 @@ export default function DomainProfile() {
     }
   };
 
+  // Check marketplace approval - only when modal is open and address exists
+  const approvalCheckEnabled = showListingModal && !!address;
+  const { data: approvalStatus, refetch: refetchApproval } = isMarketplaceApproved(
+    address as `0x${string}`, 
+    chainId
+  );
+  
+  useEffect(() => {
+    if (showListingModal && approvalStatus !== undefined) {
+      setIsApproved(approvalStatus as boolean);
+    }
+  }, [approvalStatus, showListingModal]);
+
+  // Refetch approval status when modal opens
+  useEffect(() => {
+    if (showListingModal && address) {
+      refetchApproval?.();
+    }
+  }, [showListingModal, address, refetchApproval]);
+
+  // Handle marketplace approval
+  const handleApproveMarketplace = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(null);
+
+    try {
+      await approveNFT(chainId);
+      setSaveSuccess("Approval submitted! Please confirm in your wallet.");
+      // Wait a bit then refetch approval status
+      setTimeout(() => {
+        setSaveSuccess(null);
+        refetchApproval?.();
+      }, 3000);
+    } catch (err: any) {
+      console.error("Error approving marketplace:", err);
+      setSaveError(err.message || "Failed to approve marketplace");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handle listing domain for sale
+  const handleListForSale = async () => {
+    if (!listingPrice || parseFloat(listingPrice) <= 0) {
+      setSaveError("Please enter a valid price");
+      return;
+    }
+
+    if (!selectedDomain?.tokenId) {
+      setSaveError("Domain token ID not found");
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(null);
+
+    try {
+      await listDomain(BigInt(selectedDomain.tokenId), listingPrice, chainId);
+      setSaveSuccess("Listing submitted! Please confirm in your wallet.");
+      setTimeout(() => {
+        setShowListingModal(false);
+        setSaveSuccess(null);
+        setListingPrice("");
+      }, 2000);
+    } catch (err: any) {
+      console.error("Error listing domain:", err);
+      setSaveError(err.message || "Failed to list domain");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Build sidebar items dynamically based on loaded records
   const sidebarItems = [
     {
@@ -488,12 +579,6 @@ export default function DomainProfile() {
           </div>
 
           <div className="flex items-center gap-3">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              className="px-4 py-2 bg-[var(--primary)] rounded-md hover:opacity-90 transition"
-            >
-              List Domain
-            </motion.button>
             <motion.button
               whileHover={{ scale: 1.03 }}
               className="px-4 py-2 border border-[rgba(255,255,255,0.14)] rounded-md hover:border-[rgba(255,255,255,0.3)] transition"
@@ -1286,6 +1371,200 @@ export default function DomainProfile() {
               >
                 {isSaving ? "Transferring..." : "Confirm"}
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* List for Sale Modal */}
+      <AnimatePresence>
+        {showListingModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
+            onClick={() => setShowListingModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#0a0f2e] border border-blue-700 rounded-xl p-6 w-full max-w-lg my-8"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-white">
+                  List Domain for Sale
+                </h2>
+                <button
+                  onClick={() => setShowListingModal(false)}
+                  className="text-[var(--text-soft)] hover:text-white transition"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Domain Info */}
+              <div className="mb-6">
+                <label className="block text-sm text-white mb-2">
+                  Domain to list
+                </label>
+                <div className="bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-3">
+                  <span className="text-white">
+                    {selectedDomain?.name || "domain.poly"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Ownership Verification */}
+              <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <div className="flex items-center gap-2 text-green-400 mb-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm font-medium">Ownership Verified</span>
+                </div>
+                <p className="text-xs text-green-300/70">
+                  You are the verified owner of this domain
+                </p>
+              </div>
+
+              {/* Marketplace Approval Status */}
+              {!isApproved && (
+                <div className="mb-6">
+                  <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg mb-4">
+                    <div className="flex items-center gap-2 text-yellow-400 mb-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <span className="text-sm font-medium">Approval Required</span>
+                    </div>
+                    <p className="text-xs text-yellow-300/70 mb-3">
+                      Before listing, you need to approve the marketplace to transfer your NFT
+                    </p>
+                    <button
+                      onClick={handleApproveMarketplace}
+                      disabled={isSaving}
+                      className="w-full bg-yellow-600 text-white py-2 rounded-lg font-medium hover:bg-yellow-700 transition disabled:opacity-50"
+                    >
+                      {isSaving ? "Approving..." : "Approve Marketplace"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Price Input */}
+              <div className="mb-6">
+                <label className="block text-sm text-white mb-2">
+                  Listing Price (USDC)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    placeholder="Enter price in USDC (minimum 1 USDC)"
+                    value={listingPrice}
+                    onChange={(e) => setListingPrice(e.target.value)}
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-blue-700 rounded-lg px-4 py-3 pr-16 text-white placeholder-[var(--text-soft)] focus:outline-none focus:border-[#2349E2] transition"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-soft)] text-sm font-medium">
+                    USDC
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--text-soft)] mt-2">
+                  Minimum listing price: 1 USDC • Marketplace fee: 2.5%
+                </p>
+                {listingPrice && parseFloat(listingPrice) > 0 && (
+                  <div className="mt-3 p-3 bg-[rgba(255,255,255,0.03)] border border-blue-700/50 rounded-lg">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-[var(--text-soft)]">Listing Price</span>
+                      <span className="text-white">{listingPrice} USDC</span>
+                    </div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-[var(--text-soft)]">Marketplace Fee (2.5%)</span>
+                      <span className="text-white">{(parseFloat(listingPrice) * 0.025).toFixed(2)} USDC</span>
+                    </div>
+                    <div className="border-t border-blue-700/30 my-2"></div>
+                    <div className="flex justify-between text-sm font-medium">
+                      <span className="text-white">You'll Receive</span>
+                      <span className="text-green-400">{(parseFloat(listingPrice) * 0.975).toFixed(2)} USDC</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Important Notes */}
+              <div className="mb-6 p-4 bg-[rgba(255,255,255,0.03)] border border-blue-700/50 rounded-lg">
+                <h4 className="text-sm font-medium text-white mb-2">Important Notes</h4>
+                <ul className="text-xs text-[var(--text-soft)] space-y-1">
+                  <li>• Your domain will be listed on the marketplace immediately</li>
+                  <li>• You can cancel or update the listing at any time</li>
+                  <li>• Once sold, the ownership transfers to the buyer</li>
+                  <li>• Payment will be received in USDC</li>
+                </ul>
+              </div>
+
+              {/* Status Messages */}
+              {saveError && (
+                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                  {saveError}
+                </div>
+              )}
+              {saveSuccess && (
+                <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 text-sm">
+                  {saveSuccess}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowListingModal(false);
+                    setListingPrice("");
+                    setSaveError(null);
+                    setSaveSuccess(null);
+                  }}
+                  className="flex-1 bg-[rgba(255,255,255,0.05)] text-white py-3 rounded-lg font-medium hover:bg-[rgba(255,255,255,0.1)] transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleListForSale}
+                  disabled={!isApproved || !listingPrice || parseFloat(listingPrice) < 1 || isSaving}
+                  className="flex-1 bg-[#2349E2] text-white py-3 rounded-lg font-medium hover:bg-[#1e3dc7] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    !isApproved 
+                      ? "Please approve marketplace first" 
+                      : !listingPrice || parseFloat(listingPrice) < 1
+                      ? "Please enter a valid price (minimum 1 USDC)"
+                      : ""
+                  }
+                >
+                  {isSaving ? "Listing..." : "List for Sale"}
+                </button>
+              </div>
+              
+              {!isApproved && (
+                <p className="text-xs text-yellow-400 mt-3 text-center">
+                  ⚠️ Please approve the marketplace before listing
+                </p>
+              )}
             </motion.div>
           </motion.div>
         )}
