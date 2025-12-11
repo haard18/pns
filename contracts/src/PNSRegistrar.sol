@@ -8,6 +8,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { PNSRegistry } from "./PNSRegistry.sol";
 import { PNSPriceOracle } from "./PNSPriceOracle.sol";
+import { PNSDomainNFT } from "./PNSDomainNFT.sol";
 
 /**
  * @title PNSRegistrar
@@ -25,6 +26,9 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
 
     /// @notice Reference to price oracle
     PNSPriceOracle public priceOracle;
+
+    /// @notice Reference to NFT contract
+    PNSDomainNFT public nftContract;
 
     /// @notice Registration period in seconds (1 year default)
     uint256 public registrationPeriod = 365 days;
@@ -128,6 +132,15 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(CONTROLLER_ROLE, admin);
+    }
+
+    /**
+     * @dev Sets the NFT contract address
+     * @param _nftContract NFT contract address
+     */
+    function setNFTContract(address _nftContract) external onlyRole(ADMIN_ROLE) {
+        require(_nftContract != address(0), "Registrar: Invalid NFT contract");
+        nftContract = PNSDomainNFT(_nftContract);
     }
 
     // ============ Admin Functions ============
@@ -299,6 +312,15 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         // Register fresh name in registry
         registry.registerName(nameHash, owner, resolver, newExpiration);
 
+        // Mint NFT for the domain if NFT contract is set
+        if (address(nftContract) != address(0)) {
+            try nftContract.mintDomain(name, nameHash, owner) {
+                // NFT minted successfully
+            } catch {
+                // Continue even if NFT minting fails - domain is still registered
+            }
+        }
+
         emit NameRegistered(nameHash, name, owner, price, newExpiration);
     }
 
@@ -408,6 +430,15 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
         // Register the name to highest bidder
         uint64 expiration = uint64(block.timestamp + 365 days);
         registry.registerName(nameHash, auction.highestBidder, resolver, expiration);
+
+        // Mint NFT for the domain if NFT contract is set
+        if (address(nftContract) != address(0)) {
+            try nftContract.mintDomain(name, nameHash, auction.highestBidder) {
+                // NFT minted successfully
+            } catch {
+                // Continue even if NFT minting fails - domain is still registered
+            }
+        }
 
         // Transfer USDC bid to treasury
         require(usdcToken.transfer(treasury, auction.highestBid), "Registrar: Payment transfer failed");

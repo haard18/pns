@@ -104,6 +104,14 @@ contract DeployPNS is Script {
         registrar.setController(address(controller));
         console.log("Granted CONTROLLER_ROLE to Controller");
 
+        // Link NFT contract to Registrar
+        registrar.setNFTContract(address(nft));
+        console.log("Linked NFT contract to Registrar");
+
+        // Transfer NFT ownership to Registrar so it can mint
+        nft.transferOwnership(address(registrar));
+        console.log("Transferred NFT ownership to Registrar");
+
         // Log all addresses for verification
         console.log("\n=== Deployment Complete ===");
         console.log("Registry:", address(registry));

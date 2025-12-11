@@ -25,8 +25,14 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
     /// @notice Mapping of token ID to name hash
     mapping(uint256 => bytes32) public tokenIdToNameHash;
 
+    /// @notice Mapping of token ID to domain name
+    mapping(uint256 => string) public tokenIdToDomainName;
+
     /// @notice Base URI for metadata
     string public baseURI;
+
+    /// @notice Marketplace contract address
+    address public marketplace;
 
     /// @notice Tracks which chain currently hosts the active wrapper (currently Polygon only)
     enum MintChain {
@@ -50,6 +56,9 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
 
     /// @notice Emitted when freeze state changes
     event TokenFrozen(uint256 indexed tokenId, bool frozen);
+
+    /// @notice Emitted when marketplace address is updated
+    event MarketplaceUpdated(address indexed oldMarketplace, address indexed newMarketplace);
 
     // ============ Initialization ============
 
@@ -76,6 +85,17 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
      */
     function setBaseURI(string memory newBaseURI) external onlyOwner {
         baseURI = newBaseURI;
+    }
+
+    /**
+     * @dev Sets the marketplace contract address
+     * @param _marketplace Marketplace contract address
+     */
+    function setMarketplace(address _marketplace) external onlyOwner {
+        require(_marketplace != address(0), "NFT: Invalid marketplace");
+        address oldMarketplace = marketplace;
+        marketplace = _marketplace;
+        emit MarketplaceUpdated(oldMarketplace, _marketplace);
     }
 
     /**
@@ -110,6 +130,7 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
 
         nameHashToTokenId[nameHash] = tokenId;
         tokenIdToNameHash[tokenId] = nameHash;
+        tokenIdToDomainName[tokenId] = name;
 
         _safeMint(owner, tokenId);
         mintChainByNameHash[nameHash] = MintChain.Polygon;
@@ -128,6 +149,7 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
         bytes32 nameHash = tokenIdToNameHash[tokenId];
         delete nameHashToTokenId[nameHash];
         delete tokenIdToNameHash[tokenId];
+        delete tokenIdToDomainName[tokenId];
         delete frozenToken[tokenId];
         mintChainByNameHash[nameHash] = MintChain.None;
 
@@ -233,12 +255,99 @@ contract PNSDomainNFT is ERC721, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Returns URI for a token
+     * @dev Returns URI for a token - generates dynamic SVG with domain name
      * @param tokenId Token ID
      */
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(ownerOf(tokenId) != address(0), "NFT: Token does not exist");
-        return string(abi.encodePacked(baseURI, _toString(tokenId)));
+        
+        string memory domainName = tokenIdToDomainName[tokenId];
+        string memory svg = _generateSVG(domainName);
+        string memory json = _generateMetadata(domainName, svg);
+        
+        return string(abi.encodePacked("data:application/json;base64,", _base64Encode(bytes(json))));
+    }
+
+    /**
+     * @dev Generates dynamic SVG with domain name
+     * @param domainName Domain name to display
+     */
+    function _generateSVG(string memory domainName) internal pure returns (string memory) {
+        return string(abi.encodePacked(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">',
+            '<defs>',
+            '<linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">',
+            '<stop offset="0%" style="stop-color:#1e3a8a;stop-opacity:1" />',
+            '<stop offset="50%" style="stop-color:#3b82f6;stop-opacity:1" />',
+            '<stop offset="100%" style="stop-color:#1e3a8a;stop-opacity:1" />',
+            '</linearGradient>',
+            '</defs>',
+            '<rect width="400" height="400" fill="url(#grad1)"/>',
+            '<path d="M200,100 L250,175 L200,150 L150,175 Z" fill="#60a5fa" opacity="0.3"/>',
+            '<path d="M200,150 L250,225 L200,200 L150,225 Z" fill="#60a5fa" opacity="0.5"/>',
+            '<path d="M200,200 L250,275 L200,250 L150,275 Z" fill="#60a5fa" opacity="0.7"/>',
+            '<text x="200" y="320" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="white" text-anchor="middle">',
+            domainName,
+            '.poly</text>',
+            '<text x="200" y="360" font-family="Arial, sans-serif" font-size="14" fill="#93c5fd" text-anchor="middle">Polygon Naming Service</text>',
+            '</svg>'
+        ));
+    }
+
+    /**
+     * @dev Generates JSON metadata
+     * @param domainName Domain name
+     * @param svg SVG image data
+     */
+    function _generateMetadata(string memory domainName, string memory svg) internal pure returns (string memory) {
+        return string(abi.encodePacked(
+            '{"name":"',
+            domainName,
+            '.poly","description":"A domain registered on the Polygon Naming Service (PNS).","image":"data:image/svg+xml;base64,',
+            _base64Encode(bytes(svg)),
+            '","attributes":[{"trait_type":"Registry","value":"Polygon Naming Service"},{"trait_type":"Type","value":"Domain NFT"},{"trait_type":"Domain","value":"',
+            domainName,
+            '.poly"}]}'
+        ));
+    }
+
+    /**
+     * @dev Base64 encoding
+     * @param data Data to encode
+     */
+    function _base64Encode(bytes memory data) internal pure returns (string memory) {
+        if (data.length == 0) return "";
+
+        string memory table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        uint256 encodedLen = 4 * ((data.length + 2) / 3);
+        string memory result = new string(encodedLen);
+
+        assembly {
+            let tablePtr := add(table, 1)
+            let resultPtr := add(result, 32)
+            let dataPtr := data
+            let endPtr := add(dataPtr, mload(data))
+            
+            for {} lt(dataPtr, endPtr) {} {
+                dataPtr := add(dataPtr, 3)
+                let input := mload(dataPtr)
+
+                mstore8(resultPtr, mload(add(tablePtr, and(shr(18, input), 0x3F))))
+                resultPtr := add(resultPtr, 1)
+                mstore8(resultPtr, mload(add(tablePtr, and(shr(12, input), 0x3F))))
+                resultPtr := add(resultPtr, 1)
+                mstore8(resultPtr, mload(add(tablePtr, and(shr(6, input), 0x3F))))
+                resultPtr := add(resultPtr, 1)
+                mstore8(resultPtr, mload(add(tablePtr, and(input, 0x3F))))
+                resultPtr := add(resultPtr, 1)
+            }
+
+            switch mod(mload(data), 3)
+            case 1 { mstore(sub(resultPtr, 2), shl(240, 0x3d3d)) }
+            case 2 { mstore(sub(resultPtr, 1), shl(248, 0x3d)) }
+        }
+
+        return result;
     }
 
     /**
