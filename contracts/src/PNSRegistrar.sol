@@ -96,6 +96,9 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
     /// @notice Emitted when refund is issued
     event RefundIssued(address indexed recipient, uint256 amount);
 
+    /// @notice Emitted when an existing domain is wrapped/minted as an NFT
+    event DomainWrappedToNFT(bytes32 indexed nameHash, string name, address indexed owner, uint256 tokenId);
+
     // ============ Modifiers ============
 
     /// @notice Only controller or admin
@@ -141,6 +144,36 @@ contract PNSRegistrar is AccessControl, Initializable, UUPSUpgradeable, Reentran
     function setNFTContract(address _nftContract) external onlyRole(ADMIN_ROLE) {
         require(_nftContract != address(0), "Registrar: Invalid NFT contract");
         nftContract = PNSDomainNFT(_nftContract);
+    }
+
+    // ============ NFT Wrap/Mint Functions ============
+
+    /**
+     * @dev Mint (wrap) an existing registered domain into a dynamic NFT.
+     * The NFT is minted to the caller's wallet address (must be current domain owner).
+     *
+     * Notes:
+     * - The registrar must own the NFT contract (see deployment script transferOwnership)
+     * - This is useful for legacy domains where minting may have been skipped/failing at registration time
+     *
+     * @param name Domain label without ".poly" (e.g. "alice" for "alice.poly")
+     */
+    function wrapToNFT(string calldata name) external nonReentrant {
+        require(address(nftContract) != address(0), "Registrar: NFT contract not set");
+
+        bytes32 nameHash = keccak256(abi.encodePacked(name, ".poly"));
+        require(registry.exists(nameHash), "Registrar: Name does not exist");
+
+        (address owner,, uint64 expiration) = registry.getNameRecord(nameHash);
+        require(owner == msg.sender, "Registrar: Not name owner");
+        require(expiration > block.timestamp, "Registrar: Name expired");
+
+        require(!nftContract.isDomainMinted(nameHash), "Registrar: Domain already minted");
+
+        nftContract.mintDomain(name, nameHash, owner);
+
+        uint256 tokenId = nftContract.nameHashToTokenId(nameHash);
+        emit DomainWrappedToNFT(nameHash, name, owner, tokenId);
     }
 
     // ============ Admin Functions ============

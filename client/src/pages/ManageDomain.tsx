@@ -20,7 +20,6 @@ const ManageDomain = () => {
     listDomain,
     approveNFT,
     isMarketplaceApproved,
-    formatUSDC,
   } = useMarketplace();
   
   const [activeTab, setActiveTab] = useState<"records" | "subdomains" | "permissions">("records");

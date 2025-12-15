@@ -518,7 +518,20 @@ export const PNSRegistrarABI = [
     ],
     "name": "renew",
     "outputs": [],
-    "stateMutability": "payable",
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+] as const;
+
+// PNSRegistrar ABI (NFT wrapping)
+export const PNSRegistrarNFTABI = [
+  {
+    "inputs": [
+      { "internalType": "string", "name": "name", "type": "string" }
+    ],
+    "name": "wrapToNFT",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   }
 ] as const;

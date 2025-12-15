@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount, useChainId, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { useNavigate } from "react-router-dom";
+import { keccak256, toBytes } from "viem";
 import { useDomain } from "../hooks/useDomain";
 import { useMarketplace } from "../hooks/useMarketplace";
 import Navbar from "../components/Navbar";
+import { contractAddresses, PNSDomainNFTABI, PNSRegistrarNFTABI } from "../config/contractConfig";
 
 // Import social icons
 import internetIcon from "../assets/internet.svg";
@@ -47,10 +49,6 @@ export default function DomainProfile() {
     listDomain,
     approveNFT,
     isMarketplaceApproved,
-    formatUSDC,
-    isPending,
-    isConfirming,
-    isSuccess,
   } = useMarketplace();
 
   const [activeTab, setActiveTab] = useState("Domain Settings");
@@ -68,6 +66,103 @@ export default function DomainProfile() {
   // Marketplace listing state
   const [listingPrice, setListingPrice] = useState("");
   const [isApproved, setIsApproved] = useState(false);
+
+  // Wrap-to-NFT state
+  const [wrapError, setWrapError] = useState<string | null>(null);
+  const [wrapSuccess, setWrapSuccess] = useState<string | null>(null);
+
+  const registrarAddress = contractAddresses[chainId]?.registrar as `0x${string}` | undefined;
+  const nftAddress = contractAddresses[chainId]?.nft as `0x${string}` | undefined;
+
+  const selectedCleanName = selectedDomain?.name
+    ? String(selectedDomain.name).replace(/\.poly$/i, "").toLowerCase()
+    : "";
+
+  const selectedNameHash = selectedCleanName
+    ? (keccak256(toBytes(`${selectedCleanName}.poly`)) as `0x${string}`)
+    : ("0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`);
+
+  const { data: selectedTokenId, refetch: refetchSelectedTokenId } = useReadContract({
+    address: nftAddress,
+    abi: PNSDomainNFTABI,
+    functionName: "getTokenId",
+    args: [selectedNameHash],
+    query: {
+      enabled: !!nftAddress && !!selectedDomain?.name,
+    },
+  });
+
+  const isAlreadyWrapped = Boolean(selectedTokenId && (selectedTokenId as bigint) !== 0n);
+
+  const {
+    data: wrapTxHash,
+    writeContract: wrapWriteContract,
+    isPending: isWrapPending,
+    error: wrapWriteError,
+  } = useWriteContract();
+
+  const { isLoading: isWrapConfirming, isSuccess: isWrapConfirmed } = useWaitForTransactionReceipt({
+    hash: wrapTxHash,
+  });
+
+  useEffect(() => {
+    if (wrapWriteError) {
+      setWrapSuccess(null);
+      setWrapError(wrapWriteError.message || "Wrap failed");
+    }
+  }, [wrapWriteError]);
+
+  useEffect(() => {
+    if (isWrapConfirmed) {
+      setWrapError(null);
+      setWrapSuccess("NFT minted to your wallet. It should now appear in your NFTs.");
+      refetchSelectedTokenId?.();
+
+      // Refresh domains list (tokenId may be indexed a bit later, but this keeps UI in sync when it is)
+      if (address) {
+        getUserDomains(address).then(setUserDomains).catch(() => undefined);
+      }
+    }
+  }, [isWrapConfirmed, refetchSelectedTokenId, address, getUserDomains]);
+
+  const handleWrapToNFT = () => {
+    setWrapError(null);
+    setWrapSuccess(null);
+
+    if (!address) {
+      setWrapError("Please connect your wallet");
+      return;
+    }
+
+    if (!selectedDomain?.name) {
+      setWrapError("No domain selected");
+      return;
+    }
+
+    if (!registrarAddress) {
+      setWrapError("Registrar contract address not configured for this network");
+      return;
+    }
+
+    // Basic ownership check using indexed data (contract also enforces ownership)
+    if (selectedDomain?.owner && String(selectedDomain.owner).toLowerCase() !== address.toLowerCase()) {
+      setWrapError("You do not own this domain");
+      return;
+    }
+
+    // If already minted, avoid sending a reverting tx
+    if (isAlreadyWrapped) {
+      setWrapError("This domain is already minted as an NFT");
+      return;
+    }
+
+    wrapWriteContract({
+      address: registrarAddress,
+      abi: PNSRegistrarNFTABI,
+      functionName: "wrapToNFT",
+      args: [selectedCleanName],
+    });
+  };
 
   useEffect(() => {
     const loadDomains = async () => {
@@ -292,7 +387,6 @@ export default function DomainProfile() {
   };
 
   // Check marketplace approval - only when modal is open and address exists
-  const approvalCheckEnabled = showListingModal && !!address;
   const { data: approvalStatus, refetch: refetchApproval } = isMarketplaceApproved(
     address as `0x${string}`, 
     chainId
@@ -674,12 +768,39 @@ export default function DomainProfile() {
                 <div className="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
                   <motion.button
                     whileHover={{ scale: 1.03 }}
-                    className="w-full md:w-auto px-4 py-2 bg-[var(--primary)] text-sm md:text-base rounded-md hover:opacity-90 transition"
+                    onClick={handleWrapToNFT}
+                    disabled={
+                      !address ||
+                      !selectedDomain?.name ||
+                      isWrapPending ||
+                      isWrapConfirming ||
+                      isAlreadyWrapped
+                    }
+                    className="w-full md:w-auto px-4 py-2 bg-[var(--primary)] text-sm md:text-base rounded-md hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Wrap to NFT
+                    {isAlreadyWrapped
+                      ? "Already Wrapped"
+                      : isWrapPending || isWrapConfirming
+                        ? "Wrapping..."
+                        : "Wrap to NFT"}
                   </motion.button>
                 </div>
               </div>
+
+              {(wrapError || wrapSuccess) && (
+                <div className="mb-6">
+                  {wrapError && (
+                    <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
+                      {wrapError}
+                    </div>
+                  )}
+                  {wrapSuccess && (
+                    <div className="text-sm text-green-300 bg-green-500/10 border border-green-500/20 rounded-md px-3 py-2">
+                      {wrapSuccess}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Domain's Background Setting */}
               <div className="mb-6">
