@@ -33,14 +33,14 @@ export const contractAddresses: Record<number, ContractAddresses> = {
     nft: '0x0000000000000000000000000000000000000000' as `0x${string}`,
     marketplace: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   },
-  // Polygon Mainnet v2 USDC (Deployed December 5, 2025)
+  // Polygon Mainnet v3 USDC (Deployed December 26, 2025)
   137: {
-    registry: '0x7c4486efe85C3bFBF0cb6b8Ac0cAcc3D580501Ba' as `0x${string}`,
-    controller: '0x463ba8Cb8b322b2DE6B498078462Bf9746638927' as `0x${string}`,
-    registrar: '0x31ac529Be6F2d51c42dd1C9D1DDcC95910D788f6' as `0x${string}`,
-    resolver: '0x2B826A368aBb0ECa9FB0Ac1C35BA3735133f4De2' as `0x${string}`,
-    priceOracle: '0xbbeaEE62A29DF74Cb872D7F92907e274D8587DE9' as `0x${string}`,
-    nft: '0x7916a0bCcEf6AEfF4d603C04313eDf0d59Dfc028' as `0x${string}`,
+    registry: '0xF55E379eeC0ae4c21A3e5140e5d7b8b538ed3EFf' as `0x${string}`,
+    controller: '0x272e664A632489b7DA6C6DdD572D21230B8F1432' as `0x${string}`,
+    registrar: '0x3cE7cfAB407030b6e754D2654b82DF7207649665' as `0x${string}`,
+    resolver: '0x2F0b0B245Efb7232b2DAB5e4e9C2c387AFB7E4a0' as `0x${string}`,
+    priceOracle: '0x9EfCe9EB995399c02486642Cb00Ca57403837f60' as `0x${string}`,
+    nft: '0xE481763F6e201f279D46da30F8e0D6912DaDBcc8' as `0x${string}`,
     marketplace: '0x2392b05affaedf1f184b41768cc439e51e5bf388' as `0x${string}`,
   },
 };

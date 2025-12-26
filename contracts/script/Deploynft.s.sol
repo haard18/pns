@@ -10,9 +10,10 @@ contract DeployPNSDomainNFT is Script {
 
         vm.startBroadcast(pk);
 
+        address registry = vm.envAddress("REGISTRY");
         PNSDomainNFT nft = new PNSDomainNFT(
-            0xEbcbf5dB26A7496Ab146E7595bE76B3FE1345F80,
-            "ipfs://bafkreiedjwny3u67id3zl2gymy7hhrphkvmwi2o6ni5majlqzj4ihuzzv4"
+            registry,
+            "https://pns.poly/metadata/"
         );
 
         vm.stopBroadcast();
